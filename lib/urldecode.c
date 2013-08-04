@@ -26,7 +26,7 @@
 
 #include "base64.h"
 
-char* thunderURLEncode(const char* uri)
+char* thunder_url_encode(const char* uri)
 {
     char p[256]={0}, *b64, *url;
     size_t l, len;
@@ -43,7 +43,7 @@ char* thunderURLEncode(const char* uri)
     return url;
 }
 
-char* thunderURLDecode(const char* euri)
+char* thunder_url_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -64,7 +64,7 @@ char* thunderURLDecode(const char* euri)
     return url;
 }
 
-char* qqURLEncode(const char* uri)
+char* qq_url_encode(const char* uri)
 {
 	char *b64, *url;
     size_t l, len;
@@ -79,7 +79,7 @@ char* qqURLEncode(const char* uri)
     return url;
 }
 
-char* qqURLDecode(const char* euri)
+char* qq_url_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -95,7 +95,7 @@ char* qqURLDecode(const char* euri)
     return url;
 }
 
-char* flashgetURLEncode(const char* uri)
+char* flash_url_encode(const char* uri)
 {
 	char u[256] = {0};
 	char *b64, *url = NULL;
@@ -115,7 +115,7 @@ char* flashgetURLEncode(const char* uri)
     return url;
 }
 
-char* flashgetURLDecode(const char* euri)
+char* flash_url_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -137,16 +137,16 @@ char* flashgetURLDecode(const char* euri)
 /*
  * you should free return value.
  */
-char* urlUnmask(const char* euri)
+char* url_decode(const char* euri)
 {
     char *url;
 
     if (strncmp(euri, "thunder://", 10) == 0) {
-		url = thunderURLDecode(euri);
+		url = thunder_url_decode(euri);
 	}else if (strncmp(euri, "qqdl://", 7) == 0) {
-		url = qqURLDecode(euri);
+		url = qq_url_decode(euri);
 	}else if (strncmp(euri, "Flashget://", 11) == 0) {
-		url = flashgetURLDecode(euri);
+		url = flash_url_decode(euri);
     }else{
     	url = strdup(euri);
     }
@@ -158,14 +158,14 @@ int main(int argc, char** argv)
     char *p;
 	char *uri = "http://www.中国.com";
 	char *euri;
-    euri = thunderURLEncode(uri);
-    p = thunderURLDecode(euri);
+    euri = thunder_url_encode(uri);
+    p = thunder_url_decode(euri);
 	if (strcmp(p, uri) == 0) {
 		printf("[OK], uri=%s, euri=%s\n", uri, euri);
 	}
 
-	euri = qqURLEncode(uri);
-	p = qqURLDecode(euri);
+	euri = qq_url_encode(uri);
+	p = qq_url_decode(euri);
 	if (strcmp(p, uri) == 0) {
 		printf("[OK], uri=%s, euri=%s\n", uri, euri);
 	}

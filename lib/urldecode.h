@@ -20,15 +20,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
-#ifndef __CONVERTURL_H__ 
-#define __CONVERTURL_H__  1
+#ifndef __URLDECODE_H__ 
+#define __URLDECODE_H__  1
 
-char* thunderURLEncode(const char* uri);
-char* thunderURLDecode(const char* euri);
-char* qqURLEncode(const char* uri);
-char* qqURLDecode(const char* euri);
-char* flashgetURLEncode(const char* uri);
-char* flashgetURLDecode(const char* euri);
-char* urlUnmask(const char* euri);
+char* thunder_url_encode(const char* uri);
+char* thunder_url_decode(const char* euri);
+char* qq_url_encode(const char* uri);
+char* qq_url_decode(const char* euri);
+char* flashget_url_encode(const char* uri);
+char* flashget_url_decode(const char* euri);
+char* url_decode(const char* euri);
 
-#endif /* __CONVERTURL_H__ */
+#endif /* __URLDECODE_H__ */
