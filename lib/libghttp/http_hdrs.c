@@ -346,6 +346,7 @@ char *http_hdr_get_cookie(http_hdr_list *a_list, const char *a_name)
             strcasecmp(a_list->header[i], "Set-Cookie")) {
             continue;
         }
+        printf("[COOKIE] %s\n", a_list->value[i]);
         if (strstr(a_list->value[i], a_name)) {
             char cookie[256] = {0};
             char *start;

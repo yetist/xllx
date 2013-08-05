@@ -17,6 +17,7 @@ libxllx_la_SOURCES = 	\
 	smemory.c 	\
 	client.c 	\
 	md5.c 	\
+	url.c 	\
 	logger.c 
 
 libxllx_la_CFLAGS =	\

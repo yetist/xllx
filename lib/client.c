@@ -32,6 +32,7 @@
 #include "http.h"
 #include "smemory.h"
 #include "logger.h"
+#include "url.h"
 
 struct _XLCookies {
     char *ptvfsession;          /**< ptvfsession */
@@ -79,6 +80,87 @@ XLClient *xl_client_new(const char *username, const char *password)
 	return lc;
 }
 
+static void create_post_data(XLClient *client, char *buf, int buflen)
+{
+    char *s;
+    char m[512];
+	char* md5 =  encode_password(client->password, client->vcode);
+	//char* md5 =  encode_password("puhua418", "!CEP");
+    snprintf(m, sizeof(m), "{\"u\":\"%s\",\"p\":\"%s\",\"login_enable\":\"0\",\"login_hour\":\"720\",\"verifycode\":\"%s\"}",
+             client->username, md5, client->vcode);
+	printf("m=%s\n", m);
+    s = url_encode(m);
+    snprintf(buf, buflen, "%s", s);
+    s_free(s);
+}
+
+void do_login(XLClient *client, const char* encpwd, XLErrorCode *err)
+{
+    char msg[512] ={0};
+	XLHttpRequest *req;
+	char url[512];
+
+	char response[256];
+	int ret;
+
+	snprintf(url, sizeof(url), "http://login.xunlei.com/sec2login/");
+	create_post_data(client, msg, sizeof(msg));
+	xl_log(LOG_NOTICE, "%s\n", msg);
+	req = xl_http_request_create_default(url, err);
+	if (!req) {
+		goto failed;
+	}
+	ret = xl_http_request_open(req, HTTP_POST, msg);
+	if (ret != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
+		goto failed;
+	}
+
+	if (xl_http_request_get_status(req) != 200)
+	{
+		*err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+
+
+failed:
+	xl_http_request_free(req);
+}
+
+void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
+{
+    char msg[512] ={0};
+	XLHttpRequest *req;
+	char url[512];
+
+	char response[256];
+	int ret;
+
+	xl_http_request_free(req);
+	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
+	req = xl_http_request_create_default(url, err);
+	if (!req) {
+		goto failed;
+	}
+	ret = xl_http_request_open(req, HTTP_GET, NULL);
+	if (ret != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
+		goto failed;
+	}
+
+	if (xl_http_request_get_status(req) != 200)
+	{
+		*err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+
+	char* userid;
+	userid = xl_http_request_get_cookie(req, "userid");
+	xl_log(LOG_NOTICE, "Get response userid: %s\n", userid);
+failed:
+	xl_http_request_free(req);
+}
+
 int xl_client_login(XLClient *client, XLErrorCode *err)
 {
 	long now;
@@ -89,17 +171,9 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 
 	now = get_current_timestamp();
 
-    /**
-     * Second, we get the verify code from server.
-     * If server provide us a image and let us enter code shown
-     * in image number, in this situation, we just return LWQQ_EC_LOGIN_NEED_VC
-     * simply, so user should call lwqq_login() again after he set correct
-     * code to vc->vcode;
-     * Else, if we can get the code directly, do login immediately.
-     * 
-     */
 	if (!client->vcode) {
 		get_verify_code(client, now, err);
+		printf("err=%d\n", *err);
 		switch (*err) {
 			case XL_ERROR_LOGIN_NEED_VC:
 				get_verify_image(client, now);
@@ -117,12 +191,12 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 		}
 	}
     
-	char* md5 =  encode_password(client->password, client->vcode);
     /* Third: calculate the md5 */
-//    char *md5 = lwqq_enc_pwd(client->password, client->vc->str, client->vc->uin);
+    char *md5;// = lwqq_enc_pwd(client->password, client->vcode);
 
     /* Last: do real login */
-//    do_login(client, md5, err);
+    do_login(client, md5, err);
+    do_login2(client, md5, err);
 //    s_free(md5);
 
     /* Free old value */
@@ -132,7 +206,6 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 
 static char* encode_password(const char* password, const char* vcode)
 {
-	int ret;
 	char buf[128] = {0};
 	char new_buf[128] = {0};
 
@@ -146,7 +219,7 @@ static char* encode_password(const char* password, const char* vcode)
 	char *vcode_upper = string_toupper(vcode);
 	snprintf(new_buf, sizeof(new_buf), "%s%s", buf, vcode_upper);
 	s_free(vcode_upper);
-	lutil_md5_data((const unsigned char *)new_buf, strlen(new_buf), (char *)buf);
+	lutil_md5_data((const unsigned char *)new_buf, strlen(new_buf), (char*)buf);
 	return s_strdup(buf);
 }
 
@@ -244,13 +317,23 @@ static void get_verify_image(XLClient *client, long now)
     if (fd != -1) {
         ret = write(fd, xl_http_request_get_response(req), image_length);
         if (ret <= 0) {
-            xl_log(LOG_ERROR, "Saving erify image file error\n");
+            xl_log(LOG_ERROR, "Saving verify image file error\n");
         }
         close(fd);
     }
 
 failed:
 	xl_http_request_free(req);
+}
+
+void xl_client_set_verify_code(XLClient *client, const char *vcode)
+{
+	if (!client)
+		return ;
+
+	if (client->vcode != NULL)
+		s_free(client->vcode);
+	client->vcode = strdup(vcode);
 }
 
 void xl_client_get_verify_image(XLClient *client, const char *path)
