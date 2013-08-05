@@ -37,7 +37,7 @@ typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);
 typedef struct _XLHttpRequest XLHttpRequest;
 
 XLHttpRequest *xl_http_request_new(const char *url);
-XLHttpRequest *xl_http_create_default_request(const char *url, XLErrorCode *err);
+XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err);
 
 int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body);
 int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);

@@ -15,6 +15,8 @@ lib_LTLIBRARIES = libxllx.la
 libxllx_la_SOURCES = 	\
 	http.c 	\
 	smemory.c 	\
+	client.c 	\
+	md5.c 	\
 	logger.c 
 
 libxllx_la_CFLAGS =	\

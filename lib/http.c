@@ -88,7 +88,7 @@ failed:
 	return NULL;
 }
 
-XLHttpRequest *xl_http_create_default_request(const char *url, XLErrorCode *err)
+XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
 {
 	XLHttpRequest *req;
 
@@ -202,6 +202,7 @@ failed:
 		s_free(*resp);
 		*resp = NULL;
 	}
+	printf("return from open\n");
 	return -1;
 }
 

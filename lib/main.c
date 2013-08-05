@@ -25,12 +25,8 @@
 #include "smemory.h"
 #include "logger.h"
 
-int main(int argc, char** argv)
+void test_http(const char *uri)
 {
-	if (argc != 2)
-		return -1;
-
-	char *uri = argv[1];
 	XLHttpRequest *req = xl_http_request_new(uri);
 	if (req) {
 		int ret = 0;
@@ -48,5 +44,32 @@ int main(int argc, char** argv)
 		}
 		xl_http_request_free(req);
 	}
+}
+
+void test_client(const char* username, const char* password)
+{
+	char vcode[100];
+    XLClient *client;
+    client = xl_client_new(username, password);
+    XLErrorCode err;
+    xl_client_login(client, &err);
+	if (err == XL_ERROR_LOGIN_NEED_VC)
+	{
+		printf("please input the verify code:");
+		gets(vcode);
+		printf("vcode=%s\n", vcode);
+	}
+    printf("ret=%d\n", err);
+}
+
+int main(int argc, char** argv)
+{
+	if (argc != 3)
+		return -1;
+
+	char *username = argv[1];
+	char *password = argv[2];
+    //test_http("http://www.baidu.com");
+    test_client(username, password);
 	return 0;
 }
