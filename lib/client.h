@@ -31,7 +31,7 @@ typedef struct _XLClient XLClient;
 XLClient*   xl_client_new(const char *username, const char *password);
 int         xl_client_login(XLClient *client, XLErrorCode *err);
 XLErrorCode xl_client_logout(XLClient *client);
-void        xl_client_get_verify_image(XLClient *client, const char *path);
+void        xl_client_set_verify_image_path(XLClient *client, const char *path);
 void        xl_client_set_verify_code(XLClient *client, const char *vcode);
 
 char *lwqq_get_cookies(XLClient *lc);
