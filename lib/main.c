@@ -24,6 +24,7 @@
 #include "http.h"
 #include "smemory.h"
 #include "logger.h"
+#include "client.h"
 
 void test_http(const char *uri)
 {
@@ -48,10 +49,11 @@ void test_http(const char *uri)
 
 void test_client(const char* username, const char* password)
 {
-	char vcode[100];
     XLClient *client;
-    client = xl_client_new(username, password);
     XLErrorCode err;
+	char buf[4];
+
+    client = xl_client_new(username, password);
 	xl_client_set_verify_image_path(client, "/tmp/vcode.jpg");
     xl_client_login(client, &err);
 	int try = 0;
@@ -60,9 +62,9 @@ void test_client(const char* username, const char* password)
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
 			printf("please input the verify code(see /tmp/vcode.jpg):");
-			fgets(vcode, 4, stdin);
-			printf("vcode=%s\n", vcode);
-			xl_client_set_verify_code(client, vcode);
+			fgets(buf, 5, stdin);
+			printf("vcode=%s\n", buf);
+			xl_client_set_verify_code(client, buf);
 		}
 		xl_client_login(client, &err);
 		try++;

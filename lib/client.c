@@ -22,6 +22,9 @@
 
 #include <sys/time.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <unistd.h>
 #include <ctype.h>
 #include <regex.h>
 #include <sys/stat.h>
@@ -33,6 +36,7 @@
 #include "smemory.h"
 #include "logger.h"
 #include "url.h"
+#include "md5.h"
 
 struct _XLCookies {
 	char *verify_key;
@@ -140,7 +144,6 @@ void do_login(XLClient *client, XLErrorCode *err)
 	XLHttpRequest *req;
 	char url[512];
 	char *cookies;
-	char response[256];
 	int ret;
 
 	snprintf(url, sizeof(url), "http://login.xunlei.com/sec2login/");
@@ -173,6 +176,7 @@ void do_login(XLClient *client, XLErrorCode *err)
 	receive_cookies(client, req, 1);
 	if (client->cookies->userid != NULL)
 	{
+		*err = XL_ERROR_OK;
 		printf("login successfully!\nuserid=%s\n", client->cookies->userid);
 	}
 
@@ -182,12 +186,9 @@ failed:
 
 void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
 {
-    char msg[512] ={0};
 	XLHttpRequest *req;
 	char url[512];
 	char *cookies;
-
-	char response[256];
 	int ret;
 
 	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
@@ -220,13 +221,10 @@ failed:
 
 int xl_client_login(XLClient *client, XLErrorCode *err)
 {
-	long now;
     if (!client) {
         xl_log(LOG_ERROR, "Invalid pointer\n");
         return XL_ERROR_ERROR;
     }
-
-	now = get_current_timestamp();
 
 	if (!client->vcode) {
 		get_verify_code(client, err);
@@ -235,23 +233,19 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 			case XL_ERROR_LOGIN_NEED_VC:
 				get_verify_image(client);
 				xl_log(LOG_WARNING, "Need to enter verify code\n");
-				return ;
+				return -1;
 			case XL_ERROR_NETWORK_ERROR:
 				xl_log(LOG_ERROR, "Network error\n");
-				return ;
+				return -1;
 			case XL_ERROR_OK:
 				xl_log(LOG_DEBUG, "Get verify code OK\n");
 				break;
 			default:
 				xl_log(LOG_ERROR, "Unknown error\n");
-				return ;
+				return -1;
 		}
 	}
     
-    /* Third: calculate the md5 */
-    char *md5;// = lwqq_enc_pwd(client->password, client->vcode);
-
-    /* Last: do real login */
     do_login(client, err);
     //do_login2(client, md5, err);
 //    s_free(md5);
@@ -259,6 +253,7 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
     /* Free old value */
 //    lwqq_vc_free(client->vc);
 //    client->vc = NULL;
+    return 0;
 }
 
 static char* encode_password(const char* password, const char* vcode)
@@ -299,7 +294,6 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 	char url[512];
 
 	char *cookies;
-	char response[256];
 	int ret;
 
 	snprintf(url, sizeof(url), "http://login.xunlei.com/check?u=%s&cachetime=%ld", client->username, get_current_timestamp());
@@ -326,20 +320,9 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-	// TODO
-	//update_cookies(client->cookies, req, "VERIFY_KEY", 1);
-	//update_cookies(client->cookies, req, "check_result", 1);
 	receive_cookies(client, req, 1);
 	char* check_result;
-	//char* verify_key;
 	check_result = xl_http_request_get_cookie(req, "check_result");
-	//verify_key = xl_http_request_get_cookie(req, "VERIFY_KEY");
-	//xl_log(LOG_NOTICE, "Get response verify code: %s\n", check_result);
-	//client->cookies->check_result = s_strdup(check_result);
-	//client->cookies->verify_key = s_strdup(verify_key);
-
-	//update_cookies(client->cookies, req, "verify_key", 1);
-	//update_cookies(client->cookies, req, "check_result", 1);
 	if (*check_result == '0' && strlen(check_result) == 6) {
 		*err = XL_ERROR_OK;
 		client->vcode = s_strdup(check_result+2);
@@ -357,8 +340,6 @@ static void get_verify_image(XLClient *client)
 	char url[512];
 
 	char *cookies;
-    char image_file[256];
-	char response[256];
 	int ret;
 	XLErrorCode err;
 
@@ -468,8 +449,6 @@ static int re_match(const char* pattern, const char* str)
 {
     regex_t re;            
     int err;
-    int ret = -1;
-
     err = regcomp(&re, pattern, REG_EXTENDED|REG_NOSUB);
     if (err)
     {

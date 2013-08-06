@@ -419,7 +419,7 @@ static char *ungzip(const char *source, int len, int *total)
 	return unzlib(source, len, total, 1);
 }
 
-static void *xl_async_thread(void* data)
+static void* xl_async_thread(void* data)
 {
 	struct ev_loop* loop = EV_DEFAULT;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -431,6 +431,7 @@ static void *xl_async_thread(void* data)
 		pthread_cond_wait(&xl_async_cond, &mutex);
 		pthread_mutex_unlock(&mutex);
 	}
+	return NULL;
 }
 
 static void ev_io_come(EV_P_ ev_io* w, int revent)
