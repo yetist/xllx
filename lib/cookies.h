@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4 wrap ai: */
 /*
- * client.h: This file is part of ____
+ * cookies.h: This file is part of ____
  *
  * Copyright (C) 2013 yetist <xiaotian.wu@i-soft.com.cn>
  *
@@ -20,23 +20,21 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
-#ifndef __CLIENT_H__ 
-#define __CLIENT_H__  1
+#ifndef __COOKIES_H__ 
+#define __COOKIES_H__  1
 
-#include "xllx.h"
+#include "http.h"
 
-typedef struct _XLClient XLClient;
+typedef struct _XLCookies XLCookies;
 
-XLClient*   xl_client_new(const char *username, const char *password);
-int         xl_client_login(XLClient *client, XLErrorCode *err);
-XLErrorCode xl_client_logout(XLClient *client);
-void        xl_client_set_verify_image_path(XLClient *client, const char *path);
-void        xl_client_set_verify_code(XLClient *client, const char *vcode);
+XLCookies*  xl_cookies_new(void);
+void  xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache);
+void  xl_cookies_update_string(XLCookies *cookies);
+void  xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
 
-char *lwqq_get_cookies(XLClient *lc);
+void  xl_cookies_set_pagenum(XLCookies *cookies, int pagesize);
+char* xl_cookies_get_string(XLCookies *cookies);
+char* xl_cookies_get_userid(XLCookies *cookies);
+void  xl_cookies_free(XLCookies *cookies);
 
-//void lwqq_vc_free(LwqqVerifyCode *vc);
-
-void xl_client_free(XLClient *client);
-
-#endif /* __CLIENT_H__ */
+#endif /* __COOKIES_H__ */

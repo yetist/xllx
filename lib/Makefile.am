@@ -16,6 +16,7 @@ libxllx_la_SOURCES = 	\
 	http.c 	\
 	smemory.c 	\
 	client.c 	\
+	cookies.c 	\
 	md5.c 	\
 	url.c 	\
 	logger.c 

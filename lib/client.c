@@ -38,31 +38,7 @@
 #include "url.h"
 #include "md5.h"
 #include "info.h"
-
-struct _XLCookies {
-	char *verify_key;
-	char *check_result;
-	char *active;
-	char *blogresult;
-	char *downbyte;
-	char *downfile;
-	char *isspwd;
-	char *isvip;
-	char *jumpkey;
-	char *logintype;
-	char *nickname;
-	char *onlinetime;
-	char *order;
-	char *safe;
-	char *score;
-	char *sessionid;
-	char *sex;
-	char *upgrade;
-	char *userid;
-	char *in_xl;
-
-	char *cookie_strings;
-};
+#include "cookies.h"
 
 struct _XLClient
 {
@@ -79,10 +55,6 @@ static void get_verify_image(XLClient *client);
 static char *string_toupper(const char *str);
 static char* encode_password(const char* password, const char* vcode);
 static int re_match(const char* pattern, const char* str);
-static void update_cookies(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache);
-static char *xl_client_get_cookies(XLClient *client);
-static void cookies_free(XLCookies *c);
-static void receive_cookies(XLClient *client, XLHttpRequest *req, int update);
 
 XLClient *xl_client_new(const char *username, const char *password)
 {
@@ -91,11 +63,10 @@ XLClient *xl_client_new(const char *username, const char *password)
 		xl_log(LOG_ERROR, "Username or password is null\n");
 		return NULL;
 	}
-
 	XLClient *client = s_malloc0(sizeof(*client));
 	client->username = s_strdup(username);
 	client->password = s_strdup(password);
-	client->cookies = s_malloc0(sizeof(*(client->cookies)));
+	client->cookies = xl_cookies_new();
 
 	xl_log(LOG_DEBUG, "Create a new client with username:%s, password:%s successfully\n", client->username, client->password);
 	return client;
@@ -115,29 +86,6 @@ static void create_post_data(XLClient *client, char *buf, int buflen)
     s_free(s);
 }
 
-static void receive_cookies(XLClient *client, XLHttpRequest *req, int update)
-{
-	update_cookies(client->cookies, req, "VERIFY_KEY", update);
-	update_cookies(client->cookies, req, "check_result", update);
-	update_cookies(client->cookies, req, "active", update);
-	update_cookies(client->cookies, req, "blogresult", update);
-	update_cookies(client->cookies, req, "downbyte", update);
-	update_cookies(client->cookies, req, "downfile", update);
-	update_cookies(client->cookies, req, "isspwd", update);
-	update_cookies(client->cookies, req, "isvip", update);
-	update_cookies(client->cookies, req, "jumpkey", update);
-	update_cookies(client->cookies, req, "logintype", update);
-	update_cookies(client->cookies, req, "nickname", update);
-	update_cookies(client->cookies, req, "onlinetime", update);
-	update_cookies(client->cookies, req, "order", update);
-	update_cookies(client->cookies, req, "safe", update);
-	update_cookies(client->cookies, req, "score", update);
-	update_cookies(client->cookies, req, "sessionid", update);
-	update_cookies(client->cookies, req, "sex", update);
-	update_cookies(client->cookies, req, "upgrade", update);
-	update_cookies(client->cookies, req, "userid", update);
-	update_cookies(client->cookies, req, "in_xl", update);
-}
 
 void do_login(XLClient *client, XLErrorCode *err)
 {
@@ -153,7 +101,8 @@ void do_login(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-    cookies = xl_client_get_cookies(client);
+    cookies = xl_cookies_get_string(client->cookies);
+	printf("Set-Cookie=%s\n", cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -174,18 +123,20 @@ void do_login(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-	receive_cookies(client, req, 1);
-	if (client->cookies->userid != NULL)
+	xl_cookies_receive(client->cookies, req, 1);
+	char *userid;
+	userid = xl_cookies_get_userid(client->cookies);
+	if (userid != NULL)
 	{
 		*err = XL_ERROR_OK;
-		printf("login successfully!\nuserid=%s\n", client->cookies->userid);
+		printf("login successfully!\nuserid=%s\n", userid);
 	}
 
 failed:
 	xl_http_request_free(req);
 }
 
-void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
+int is_login_ok(XLClient *client, XLErrorCode *err)
 {
 	XLHttpRequest *req;
 	char url[512];
@@ -197,9 +148,10 @@ void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
 	if (!req) {
 		goto failed;
 	}
-    cookies = xl_client_get_cookies(client);
+	xl_cookies_set_pagenum(client->cookies, 1);
+    cookies = xl_cookies_get_string(client->cookies);
     if (cookies != NULL) {
-		xl_log(LOG_NOTICE, "cookies=%s\n", cookies);
+		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
@@ -214,14 +166,20 @@ void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	xl_cookies_set_pagenum(client->cookies, 100);
 
-	char* userid;
-	userid = xl_http_request_get_cookie(req, "userid");
-	printf("the user id is %s\n", userid);
-	xl_log(LOG_NOTICE, "Get response userid: %s\n", userid);
-	receive_cookies(client, req, 1);
+	char *page;
+	page = xl_http_request_get_response(req);
+	if (strlen(page) > 512)
+	{
+		s_free(page);
+		xl_cookies_receive(client->cookies, req, 1);
+		xl_http_request_free(req);
+		return 0;
+	}
 failed:
 	xl_http_request_free(req);
+	return 1;
 }
 
 int xl_client_login(XLClient *client, XLErrorCode *err)
@@ -252,6 +210,7 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 	}
     
     do_login(client, err);
+	return is_login_ok(client, err);
     //do_login2(client, md5, err);
 //    s_free(md5);
 
@@ -308,8 +267,9 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-    cookies = xl_client_get_cookies(client);
+    cookies = xl_cookies_get_string(client->cookies);
     if (cookies != NULL) {
+		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
@@ -325,7 +285,7 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-	receive_cookies(client, req, 1);
+	xl_cookies_receive(client->cookies, req, 1);
 	char* check_result;
 	check_result = xl_http_request_get_cookie(req, "check_result");
 	if (*check_result == '0' && strlen(check_result) == 6) {
@@ -355,8 +315,9 @@ static void get_verify_image(XLClient *client)
 		goto failed;
 	}
 
-    cookies = xl_client_get_cookies(client);
+    cookies = xl_cookies_get_string(client->cookies);
     if (cookies != NULL) {
+		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
@@ -370,7 +331,7 @@ static void get_verify_image(XLClient *client)
 		goto failed;
 	}
 
-	receive_cookies(client, req, 1);
+	xl_cookies_receive(client->cookies, req, 1);
 
     int image_length = 0;
     char *content_length = xl_http_request_get_header(req, "Content-Length");
@@ -427,7 +388,7 @@ void xl_client_free(XLClient *client)
 	s_free(client->username);
 	s_free(client->password);
 	s_free(client->vcode);
-	cookies_free(client->cookies);
+	xl_cookies_free(client->cookies);
 
 	s_free(client);
 }
@@ -476,7 +437,6 @@ static int re_match(const char* pattern, const char* str)
 static void xl_tasks_with_URL(char *url, int *has_next_page,TaskListType listtype)
 {
 	XLHttpRequest *req;
-	char response[256];
 	int ret;
 	XLErrorCode err;
 	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
@@ -600,196 +560,3 @@ void xl_read_delete_tasks_with_page(int pg)
 	xl_tasks_with_status_with_page(TLTDeleted, pg, NULL);
 }
 
-/** 
- * Update the cookies needed by xunlei
- *
- * @param req  
- * @param key 
- * @param value 
- * @param update_cache Weather update cookie_strings member
- */
-static void update_cookies(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache)
-{
-    if (!cookies || !req || !key) {
-        xl_log(LOG_ERROR, "Null pointer access\n");
-        return ;
-    }
-
-    char *value = xl_http_request_get_cookie(req, key);
-    if (value == NULL)
-        return ;
-    
-#define FREE_AND_STRDUP(a, b)                   \
-    if (a != NULL)                              \
-        s_free(a);                              \
-    a = s_strdup(b);
-    
-    if (!strcmp(key, "VERIFY_KEY")) {
-        FREE_AND_STRDUP(cookies->verify_key, value);
-    } else if (!strcmp(key, "check_result")) {
-        FREE_AND_STRDUP(cookies->check_result, value);
-    } else if (!strcmp(key, "active")) {
-        FREE_AND_STRDUP(cookies->active, value);
-    } else if (!strcmp(key, "blogresult")) {
-        FREE_AND_STRDUP(cookies->blogresult, value);
-    } else if (!strcmp(key, "downbyte")) {
-        FREE_AND_STRDUP(cookies->downbyte, value);
-    } else if (!strcmp(key, "downfile")) {
-        FREE_AND_STRDUP(cookies->downfile, value);
-    } else if (!strcmp(key, "isspwd")) {
-        FREE_AND_STRDUP(cookies->isspwd, value);
-    } else if (!strcmp(key, "isvip")) {
-        FREE_AND_STRDUP(cookies->isvip, value);
-    } else if (!strcmp(key, "jumpkey")) {
-        FREE_AND_STRDUP(cookies->jumpkey, value);
-    } else if (!strcmp(key, "logintype")) {
-        FREE_AND_STRDUP(cookies->logintype, value);
-    } else if (!strcmp(key, "nickname")) {
-        FREE_AND_STRDUP(cookies->nickname, value);
-    } else if (!strcmp(key, "onlinetime")) {
-        FREE_AND_STRDUP(cookies->onlinetime, value);
-    } else if (!strcmp(key, "order")) {
-        FREE_AND_STRDUP(cookies->order, value);
-    } else if (!strcmp(key, "safe")) {
-        FREE_AND_STRDUP(cookies->safe, value);
-    } else if (!strcmp(key, "score")) {
-        FREE_AND_STRDUP(cookies->score, value);
-    } else if (!strcmp(key, "sessionid")) {
-        FREE_AND_STRDUP(cookies->sessionid, value);
-    } else if (!strcmp(key, "sex")) {
-        FREE_AND_STRDUP(cookies->sex, value);
-    } else if (!strcmp(key, "upgrade")) {
-        FREE_AND_STRDUP(cookies->upgrade, value);
-    } else if (!strcmp(key, "userid")) {
-        FREE_AND_STRDUP(cookies->userid, value);
-    } else if (!strcmp(key, "in_xl")) {
-        FREE_AND_STRDUP(cookies->in_xl, value);
-    } else {
-        xl_log(LOG_WARNING, "No this cookie: %s\n", key);
-    }
-    s_free(value);
-
-    if (update_cache) {
-        char buf[4096] = {0};           /* 4K is enough for cookies. */
-        int buflen = 0;
-        if (cookies->verify_key) {
-            snprintf(buf, sizeof(buf), "VERIFY_KEY=%s; ", cookies->verify_key);
-            buflen = strlen(buf);
-        }
-        if (cookies->check_result) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "check_result=%s; ", cookies->check_result);
-            buflen = strlen(buf);
-        }
-        if (cookies->active) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "active=%s; ", cookies->active);
-            buflen = strlen(buf);
-        }
-        if (cookies->blogresult) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "blogresult=%s; ", cookies->blogresult);
-            buflen = strlen(buf);
-        }
-        if (cookies->downbyte) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "downbyte=%s; ", cookies->downbyte);
-            buflen = strlen(buf);
-        }
-        if (cookies->downfile) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "downfile=%s; ", cookies->downfile);
-            buflen = strlen(buf);
-        }
-        if (cookies->isspwd) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "isspwd=%s; ", cookies->isspwd);
-            buflen = strlen(buf);
-        }
-        if (cookies->isvip) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "isvip=%s; ", cookies->isvip);
-            buflen = strlen(buf);
-        }
-        if (cookies->jumpkey) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "jumpkey=%s; ", cookies->jumpkey);
-            buflen = strlen(buf);
-        }
-        if (cookies->logintype) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "logintype=%s; ", cookies->logintype);
-            buflen = strlen(buf);
-        }
-        if (cookies->nickname) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "nickname=%s; ", cookies->nickname);
-            buflen = strlen(buf);
-        }
-        if (cookies->onlinetime) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "onlinetime=%s; ", cookies->onlinetime);
-            buflen = strlen(buf);
-        }
-        if (cookies->order) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "order=%s; ", cookies->order);
-            buflen = strlen(buf);
-        }
-        if (cookies->safe) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "safe=%s; ", cookies->safe);
-            buflen = strlen(buf);
-        }
-        if (cookies->score) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "score=%s; ", cookies->score);
-            buflen = strlen(buf);
-        }
-        if (cookies->sessionid) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "sessionid=%s; ", cookies->sessionid);
-            buflen = strlen(buf);
-        }
-        if (cookies->sex) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "sex=%s; ", cookies->sex);
-            buflen = strlen(buf);
-        }
-        if (cookies->upgrade) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "upgrade=%s; ", cookies->upgrade);
-            buflen = strlen(buf);
-        }
-        if (cookies->userid) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "userid=%s; ", cookies->userid);
-            buflen = strlen(buf);
-        }
-        if (cookies->in_xl) {
-            snprintf(buf + buflen, sizeof(buf) - buflen, "in_xl=%s; ", cookies->in_xl);
-            buflen = strlen(buf);
-        }
-        
-        FREE_AND_STRDUP(cookies->cookie_strings, buf);
-    }
-#undef FREE_AND_STRDUP
-}
-
-static char *xl_client_get_cookies(XLClient *client)
-{
-    if (client->cookies && client->cookies->cookie_strings) {
-        return s_strdup(client->cookies->cookie_strings);
-    }
-    return NULL;
-}
-
-static void cookies_free(XLCookies *c)
-{
-	if (c != NULL) {
-		s_free(c->verify_key);
-		s_free(c->check_result);
-		s_free(c->active);
-		s_free(c->blogresult);
-		s_free(c->downbyte);
-		s_free(c->downfile);
-		s_free(c->isspwd);
-		s_free(c->isvip);
-		s_free(c->jumpkey);
-		s_free(c->logintype);
-		s_free(c->nickname);
-		s_free(c->onlinetime);
-		s_free(c->order);
-		s_free(c->safe);
-		s_free(c->score);
-		s_free(c->sessionid);
-		s_free(c->sex);
-		s_free(c->upgrade);
-		s_free(c->userid);
-		s_free(c->in_xl);
-		s_free(c->cookie_strings);
-		s_free(c);
-	}
-}

@@ -52,12 +52,13 @@ void test_client(const char* username, const char* password)
     XLClient *client;
     XLErrorCode err;
 	char buf[4];
+	int ret;
 
     client = xl_client_new(username, password);
 	xl_client_set_verify_image_path(client, "/tmp/vcode.jpg");
-    xl_client_login(client, &err);
+    ret = xl_client_login(client, &err);
 	int try = 0;
-	while (err != XL_ERROR_OK && try < 3)
+	while (ret != 0 && err != XL_ERROR_OK && try < 3)
 	{
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
