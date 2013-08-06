@@ -317,9 +317,9 @@ int xl_http_request_get_status(XLHttpRequest *request)
 	return request->http_code;
 }
 
-const char* xl_http_request_get_response(XLHttpRequest *request)
+char* xl_http_request_get_response(XLHttpRequest *request)
 {
-	return request->response;
+	return s_strdup(request->response);
 }
 
 void xl_http_request_free(XLHttpRequest *request)

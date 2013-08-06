@@ -477,7 +477,7 @@ static void xl_tasks_with_status(XLClient *client, TaskListType listType)
 {
 	char url[512];
 	//char *userid = "288543553";
-	char *userid = xl_cookies_get_userid(client);
+	char *userid = xl_cookies_get_userid(client->cookies);
 	switch (listType) {
 		case TLTAll:
 			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=0",userid);
@@ -504,7 +504,7 @@ static void xl_tasks_with_status(XLClient *client, TaskListType listType)
 static void xl_tasks_with_status_with_page(XLClient *client, TaskListType listType,int pg,int *hasNextPage)
 {
 	//char* userid = "288543553";
-	char *userid = xl_cookies_get_userid(client);
+	char *userid = xl_cookies_get_userid(client->cookies);
 	char url[512];
 	switch (listType) {
 		case TLTAll:
