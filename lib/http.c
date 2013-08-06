@@ -259,7 +259,7 @@ int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method,
 	return 0;
 }
 
-static void xl_http_set_header(XLHttpRequest *request, const char *name, const char *value)
+void xl_http_request_set_header(XLHttpRequest *request, const char *name, const char *value)
 {
 	if (!request->req || !name || !value)
 		return ;
@@ -269,14 +269,15 @@ static void xl_http_set_header(XLHttpRequest *request, const char *name, const c
 
 static void xl_http_request_set_default_header(XLHttpRequest *request)
 {
-	xl_http_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
-	xl_http_set_header(request, "Accept", "text/html, application/xml;q=0.9, "
-			"application/xhtml+xml, image/png, image/jpeg, "
-			"image/gif, image/x-xbitmap, */*;q=0.1");
-	xl_http_set_header(request, "Accept-Language", "en-US,zh-CN,zh;q=0.9,en;q=0.8");
-	xl_http_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
-	xl_http_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
-	xl_http_set_header(request, "Connection", "Keep-Alive");
+	//xl_http_request_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
+	xl_http_request_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
+	xl_http_request_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");
+	xl_http_request_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
+	//xl_http_request_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
+	xl_http_request_set_header(request, "Connection", "Keep-Alive");
+
+	xl_http_request_set_header(request, "Accept-Encoding", "gzip, deflate");
+
 }
 
 char *xl_http_request_get_header(XLHttpRequest *request, const char *name)
