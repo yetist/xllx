@@ -71,6 +71,7 @@ void test_client(const char* username, const char* password)
 		try++;
 	}
     printf("ret=%d\n", err);
+	xl_read_all_complete_tasks(client);
 }
 
 int main(int argc, char** argv)

@@ -33,6 +33,7 @@ XLErrorCode xl_client_logout(XLClient *client);
 void        xl_client_set_verify_image_path(XLClient *client, const char *path);
 void        xl_client_set_verify_code(XLClient *client, const char *vcode);
 
+void xl_read_all_complete_tasks(XLClient *client);
 char *lwqq_get_cookies(XLClient *lc);
 
 //void lwqq_vc_free(LwqqVerifyCode *vc);
