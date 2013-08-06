@@ -181,6 +181,11 @@ failed:
 	xl_http_request_free(req);
 }
 
+char *userID(XLClient *client)
+{
+	return strdup(client->cookies->userid);
+}
+
 void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
 {
     char msg[512] ={0};
@@ -494,17 +499,24 @@ static int re_match(const char* pattern, const char* str)
     return 0;
 }
 
-static void xl_tasks_with_URL(char *url, int *has_next_page,TaskListType listtype)
+static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,TaskListType listtype)
 {
 	XLHttpRequest *req;
 	char response[256];
 	int ret;
+	char *cookies;
 	XLErrorCode err;
 	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
 	req = xl_http_request_create_default(url, &err);
+    cookies = xl_client_get_cookies(client);
 	if (!req) {
 		goto failed;
 	}
+    if (cookies != NULL) {
+		xl_log(LOG_NOTICE, "cookies=%s\n", cookies);
+		xl_http_request_set_header(req, "Cookie", cookies);
+        s_free(cookies);
+    }
 	ret = xl_http_request_open(req, HTTP_GET, NULL);
 	if (ret != 0) {
 		goto failed;
@@ -516,19 +528,22 @@ static void xl_tasks_with_URL(char *url, int *has_next_page,TaskListType listtyp
 	}
 	char *content_length = xl_http_request_get_header(req, "Content-Length");
 	if (content_length) {
-		xl_http_request_get_response(req);
+		const char *res =	xl_http_request_get_response(req);
+		xl_log(LOG_NOTICE, "Request response is %s\n", res);
 		//here parse the response
 	}
 
 failed:
+	xl_log(LOG_NOTICE, "Errored");
 	xl_http_request_free(req);
 
 }
 
-static void xl_tasks_with_status(TaskListType listType)
+static void xl_tasks_with_status(XLClient *client, TaskListType listType)
 {
 	char url[512];
-	char *userid = "288543553";
+	//char *userid = "288543553";
+	char *userid = userID(client);
 	switch (listType) {
 		case TLTAll:
 			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=0",userid);
@@ -549,12 +564,13 @@ static void xl_tasks_with_status(TaskListType listType)
 			break;
 	}
 
-	xl_tasks_with_URL(url, 0, listType);
+	xl_tasks_with_URL(client, url, 0, listType);
 }
 
-static void xl_tasks_with_status_with_page(TaskListType listType,int pg,int *hasNextPage)
+static void xl_tasks_with_status_with_page(XLClient *client, TaskListType listType,int pg,int *hasNextPage)
 {
-	char* userid = "288543553";
+	//char* userid = "288543553";
+	char* userid = userID(client);
 	char url[512];
 	switch (listType) {
 		case TLTAll:
@@ -575,50 +591,50 @@ static void xl_tasks_with_status_with_page(TaskListType listType,int pg,int *has
 		default:
 			break;
 	}
-	xl_tasks_with_URL(url, hasNextPage, listType);
+	xl_tasks_with_URL(client, url, hasNextPage, listType);
 }
 
-void xl_read_all_tasks_with_stat(TaskListType listType){
+void xl_read_all_tasks_with_stat(XLClient *client, TaskListType listType){
 	int pg=1;
 	int hasNP=0;
 	do {
-		xl_tasks_with_status_with_page(listType, pg, &hasNP);
+		xl_tasks_with_status_with_page(client, listType, pg, &hasNP);
 		pg++;
 	} while (hasNP);
 	return;
 }
 
-void xl_read_all_complete_tasks()
+void xl_read_all_complete_tasks(XLClient *client)
 {
-	xl_read_all_tasks_with_stat(TLTComplete);
+	xl_read_all_tasks_with_stat(client, TLTComplete);
 }
-void xl_read_complete_tasks_with_page(int pg)
+void xl_read_complete_tasks_with_page(XLClient *client, int pg)
 {
-	xl_tasks_with_status_with_page(TLTComplete, pg, NULL);
+	xl_tasks_with_status_with_page(client, TLTComplete, pg, NULL);
 }
-void xl_read_all_downloading_tasks()
+void xl_read_all_downloading_tasks(XLClient *client)
 {
-	xl_read_all_tasks_with_stat(TLTDownloadding);
+	xl_read_all_tasks_with_stat(client, TLTDownloadding);
 }
-void xl_read_downloading_tasks_with_page(int pg)
+void xl_read_downloading_tasks_with_page(XLClient *client, int pg)
 {
-	xl_tasks_with_status_with_page(TLTDownloadding, pg, NULL);
+	xl_tasks_with_status_with_page(client, TLTDownloadding, pg, NULL);
 }
-void xl_read_all_outofdate_tasks()
+void xl_read_all_outofdate_tasks(XLClient *client)
 {
-	xl_read_all_tasks_with_stat(TLTOutofDate);
+	xl_read_all_tasks_with_stat(client, TLTOutofDate);
 }
-void xl_read_outofdate_tasks_with_page(int pg)
+void xl_read_outofdate_tasks_with_page(XLClient *client, int pg)
 {
-	xl_tasks_with_status_with_page(TLTOutofDate, pg, NULL);
+	xl_tasks_with_status_with_page(client, TLTOutofDate, pg, NULL);
 }
-void xl_read_all_delete_tasks()
+void xl_read_all_delete_tasks(XLClient *client)
 {
-	xl_read_all_tasks_with_stat(TLTDeleted);
+	xl_read_all_tasks_with_stat(client,TLTDeleted);
 }
-void xl_read_delete_tasks_with_page(int pg)
+void xl_read_delete_tasks_with_page(XLClient *client, int pg)
 {
-	xl_tasks_with_status_with_page(TLTDeleted, pg, NULL);
+	xl_tasks_with_status_with_page(client, TLTDeleted, pg, NULL);
 }
 
 /** 

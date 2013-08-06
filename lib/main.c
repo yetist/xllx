@@ -48,7 +48,7 @@ void test_http(const char *uri)
 
 void test_client(const char* username, const char* password)
 {
-	char vcode[100];
+	char vcode[4];
     XLClient *client;
     client = xl_client_new(username, password);
     XLErrorCode err;
@@ -60,7 +60,7 @@ void test_client(const char* username, const char* password)
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
 			printf("please input the verify code(see /tmp/vcode.jpg):");
-			fgets(vcode, 4, stdin);
+			fgets(vcode, 5, stdin);
 			printf("vcode=%s\n", vcode);
 			xl_client_set_verify_code(client, vcode);
 		}
@@ -68,6 +68,7 @@ void test_client(const char* username, const char* password)
 		try++;
 	}
     printf("ret=%d\n", err);
+	xl_read_all_complete_tasks(client);
 }
 
 int main(int argc, char** argv)
