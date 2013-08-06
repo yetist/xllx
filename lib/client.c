@@ -37,6 +37,7 @@
 #include "logger.h"
 #include "url.h"
 #include "md5.h"
+#include "info.h"
 
 struct _XLCookies {
 	char *verify_key;
@@ -214,6 +215,10 @@ void do_login2(XLClient *client, const char* encpwd, XLErrorCode *err)
 		goto failed;
 	}
 
+	char* userid;
+	userid = xl_http_request_get_cookie(req, "userid");
+	printf("the user id is %s\n", userid);
+	xl_log(LOG_NOTICE, "Get response userid: %s\n", userid);
 	receive_cookies(client, req, 1);
 failed:
 	xl_http_request_free(req);
@@ -466,6 +471,133 @@ static int re_match(const char* pattern, const char* str)
     }
     regfree(&re);
     return 0;
+}
+
+static void xl_tasks_with_URL(char *url, int *has_next_page,TaskListType listtype)
+{
+	XLHttpRequest *req;
+	char response[256];
+	int ret;
+	XLErrorCode err;
+	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
+	req = xl_http_request_create_default(url, &err);
+	if (!req) {
+		goto failed;
+	}
+	ret = xl_http_request_open(req, HTTP_GET, NULL);
+	if (ret != 0) {
+		goto failed;
+	}
+
+	if (xl_http_request_get_status(req) != 200)
+	{
+		goto failed;
+	}
+	char *content_length = xl_http_request_get_header(req, "Content-Length");
+	if (content_length) {
+		xl_http_request_get_response(req);
+		//here parse the response
+	}
+
+failed:
+	xl_http_request_free(req);
+
+}
+
+static void xl_tasks_with_status(TaskListType listType)
+{
+	char url[512];
+	char *userid = "288543553";
+	switch (listType) {
+		case TLTAll:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=0",userid);
+			break;
+		case TLTComplete:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=2",userid);
+			break;
+		case TLTDownloadding:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=1",userid);
+			break;
+		case TLTOutofDate:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_history?type=1&userid=%s",userid);
+			break;
+		case TLTDeleted:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_history?type=0userid=%s",userid);
+			break;
+		default:
+			break;
+	}
+
+	xl_tasks_with_URL(url, 0, listType);
+}
+
+static void xl_tasks_with_status_with_page(TaskListType listType,int pg,int *hasNextPage)
+{
+	char* userid = "288543553";
+	char url[512];
+	switch (listType) {
+		case TLTAll:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=0&p=%d",userid,pg);
+			break;
+		case TLTComplete:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=2&p=%d",userid,pg);
+			break;
+		case TLTDownloadding:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=1&p=%d",userid,pg);
+			break;
+		case TLTOutofDate:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_history?type=1&userid=%s&p=%d",userid,pg);
+			break;
+		case TLTDeleted:
+			snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_history?type=0&userid=%s&p=%d",userid,pg);
+			break;
+		default:
+			break;
+	}
+	xl_tasks_with_URL(url, hasNextPage, listType);
+}
+
+void xl_read_all_tasks_with_stat(TaskListType listType){
+	int pg=1;
+	int hasNP=0;
+	do {
+		xl_tasks_with_status_with_page(listType, pg, &hasNP);
+		pg++;
+	} while (hasNP);
+	return;
+}
+
+void xl_read_all_complete_tasks()
+{
+	xl_read_all_tasks_with_stat(TLTComplete);
+}
+void xl_read_complete_tasks_with_page(int pg)
+{
+	xl_tasks_with_status_with_page(TLTComplete, pg, NULL);
+}
+void xl_read_all_downloading_tasks()
+{
+	xl_read_all_tasks_with_stat(TLTDownloadding);
+}
+void xl_read_downloading_tasks_with_page(int pg)
+{
+	xl_tasks_with_status_with_page(TLTDownloadding, pg, NULL);
+}
+void xl_read_all_outofdate_tasks()
+{
+	xl_read_all_tasks_with_stat(TLTOutofDate);
+}
+void xl_read_outofdate_tasks_with_page(int pg)
+{
+	xl_tasks_with_status_with_page(TLTOutofDate, pg, NULL);
+}
+void xl_read_all_delete_tasks()
+{
+	xl_read_all_tasks_with_stat(TLTDeleted);
+}
+void xl_read_delete_tasks_with_page(int pg)
+{
+	xl_tasks_with_status_with_page(TLTDeleted, pg, NULL);
 }
 
 /** 
