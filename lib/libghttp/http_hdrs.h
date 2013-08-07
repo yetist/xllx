@@ -68,6 +68,7 @@ char *
 http_hdr_get_value(http_hdr_list *a_list,
 		   const char *a_name);
 
+int http_hdr_get_cookie_names(http_hdr_list *a_list, char ***a_cookies, int *a_num_cookies);
 /* Get a_name's cookie, caller must free the return string */
 char *
 http_hdr_get_cookie(http_hdr_list *a_list,

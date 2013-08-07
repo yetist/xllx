@@ -58,8 +58,12 @@ void test_client(const char* username, const char* password)
 	xl_client_set_verify_image_path(client, "/tmp/vcode.jpg");
     ret = xl_client_login(client, &err);
 	int try = 0;
-	while (ret != 0 && err != XL_ERROR_OK && try < 3)
+	printf("error = %d\n", err);
+	while (ret != 0 && try < 3)
 	{
+		try++;
+		if (err == XL_ERROR_HTTP_ERROR)
+			printf("ERROR: http error\n");
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
 			printf("please input the verify code(see /tmp/vcode.jpg):");
@@ -67,8 +71,8 @@ void test_client(const char* username, const char* password)
 			printf("vcode=%s\n", buf);
 			xl_client_set_verify_code(client, buf);
 		}
-		xl_client_login(client, &err);
-		try++;
+		err = XL_ERROR_OK;
+		ret = xl_client_login(client, &err);
 	}
     printf("ret=%d\n", err);
 	xl_read_all_complete_tasks(client);

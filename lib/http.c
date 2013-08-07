@@ -37,7 +37,7 @@ typedef struct _AsyncWatchData AsyncWatchData;
 
 struct _XLHttpRequest
 {
-	void *req;
+	ghttp_request *req;
 	int http_code;
 	char *response;
 	int resp_len;
@@ -170,11 +170,17 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 	/* Uncompress data here if we have a Content-Encoding header */
 	char *enc_type = NULL;
 	enc_type = xl_http_request_get_header(request, "Content-Encoding");
+    printf("enc_type=%s\n", enc_type);
+    printf("len=%d, resp=%s\n", have_read_bytes, *resp);
+    int fd=creat("/tmp/xxxx", S_IRUSR|S_IWUSR);
+    write(fd, *resp, have_read_bytes);
+    close(fd);
 	if (enc_type && strstr(enc_type, "gzip")) {
 		char *outdata;
 		int total = 0;
 
 		outdata = ungzip(*resp, have_read_bytes, &total);
+            printf("outdata=%s\n", outdata);
 		if (!outdata) {
 			s_free(enc_type);
 			goto failed;
@@ -295,6 +301,36 @@ char *xl_http_request_get_header(XLHttpRequest *request, const char *name)
 	return s_strdup(h);
 }
 
+/*
+ * return count of cookies
+ */
+int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
+{
+    int ret;
+    char **cookies;
+    int nums;
+    ret = ghttp_get_cookie_names(request->req, &cookies, &nums);
+    if (ret != 0)
+    {
+        return 0;
+    }
+    *names = cookies;
+    /* just for print */
+    int i;
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i]){
+            printf("[COOKIE]%s\n", cookies[i]);
+            //s_free(cookies[i]);
+            //cookies[i] = NULL;
+        }
+    }
+    //s_free(cookies);
+    //*names = 0;
+    /* end for print */
+    return nums;
+}
+
 char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)
 {
 	if (!name) {
@@ -317,9 +353,16 @@ int xl_http_request_get_status(XLHttpRequest *request)
 	return request->http_code;
 }
 
-char* xl_http_request_get_response(XLHttpRequest *request)
+char* xl_http_request_get_body(XLHttpRequest *request)
 {
-	return s_strdup(request->response);
+    //return ghttp_get_body(request->req);
+    //return resqughttp_get_body(request->req);
+    return request->response;
+}
+
+int xl_http_request_get_body_len(XLHttpRequest *request)
+{
+    return ghttp_get_body_len(request->req);
 }
 
 void xl_http_request_free(XLHttpRequest *request)
