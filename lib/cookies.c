@@ -53,6 +53,7 @@ struct _XLCookies {
 	char *cookie_string;
 	char *lx_nf_all;
 	char *lx_login; 
+	char *gdriveid;
 };
 
 #define free_and_strdup(a,b) \
@@ -135,6 +136,15 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
 	}
 }
 
+void xl_cookies_set_lx_nf_all(XLCookies *cookies, char *value)
+{
+        free_and_strdup(cookies->lx_nf_all, value);
+}
+
+void xl_cookies_set_gdriveid(XLCookies *cookies, char *value)
+{
+        free_and_strdup(cookies->gdriveid, value);
+}
 void xl_cookies_update_string(XLCookies *cookies)
 {
 	char buf[4096] = {0};           /* 4K is enough for cookies. */
@@ -282,6 +292,13 @@ char* xl_cookies_get_userid(XLCookies *cookies)
 	return NULL;
 }
 
+char *xl_cookies_get_gdriveid(XLCookies *cookies)
+{
+	if (cookies != NULL) {
+		return s_strdup(cookies->gdriveid);
+	}
+	return NULL;
+}
 char* xl_cookies_get_lx_login(XLCookies *cookies)
 {
 	if (cookies != NULL) {
@@ -317,6 +334,7 @@ void xl_cookies_free(XLCookies *cookies)
 		s_free(cookies->userid);
 		s_free(cookies->in_xl);
 		s_free(cookies->lx_login);
+		s_free(cookies->lx_nf_all);
 		s_free(cookies->pagenum);
 		s_free(cookies->cookie_string);
 		s_free(cookies);

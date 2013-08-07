@@ -19,6 +19,7 @@ libxllx_la_SOURCES = 	\
 	cookies.c 	\
 	md5.c 	\
 	url.c 	\
+	parse.c 	\
 	logger.c 
 
 libxllx_la_CFLAGS =	\

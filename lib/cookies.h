@@ -32,10 +32,15 @@ void  xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key,
 void  xl_cookies_update_string(XLCookies *cookies);
 void  xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
 
+void xl_cookies_set_lx_nf_all(XLCookies *cookies, char *value);
+
 void  xl_cookies_set_pagenum(XLCookies *cookies, int pagesize);
 char* xl_cookies_get_string(XLCookies *cookies);
 char* xl_cookies_get_userid(XLCookies *cookies);
 char* xl_cookies_get_lx_login(XLCookies *cookies);
 void  xl_cookies_free(XLCookies *cookies);
+
+char *xl_cookies_get_gdriveid(XLCookies *cookies);
+void xl_cookies_set_gdriveid(XLCookies *cookies, char *value);
 
 #endif /* __COOKIES_H__ */

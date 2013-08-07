@@ -40,6 +40,8 @@
 #include "info.h"
 #include "cookies.h"
 
+#include "parse.h"
+
 struct _XLClient
 {
     char *username;             /**< Username */
@@ -55,6 +57,7 @@ static void get_verify_image(XLClient *client);
 static char *string_toupper(const char *str);
 static char* encode_password(const char* password, const char* vcode);
 static int re_match(const char* pattern, const char* str);
+//static char *parse_string(const char* pattern, const char* str);
 
 XLClient *xl_client_new(const char *username, const char *password)
 {
@@ -435,6 +438,35 @@ static int re_match(const char* pattern, const char* str)
     return 0;
 }
 
+char *getGDriveID(XLCookies *cookies){
+	char *gid = xl_cookies_get_gdriveid(cookies);
+	return gid;
+}
+int isGDriveIDInCookiei(XLCookies *cookies){
+	int result = 0;
+	char *gid = getGDriveID(cookies);
+	if (gid){
+		result=1;
+		s_free(gid);
+	}
+	return result;
+}
+
+void setGdriveID(XLCookies *cookies, char *gdriveid){
+	xl_cookies_set_gdriveid(cookies, gdriveid);
+}
+
+int if_has_next_page(char *site_data)
+{
+	int result = 0;
+	char *next_page_url = nextPageSubURL(site_data);
+	if (next_page_url)
+	{
+		result = 1;
+		s_free(next_page_url);
+	}
+	return 0;
+}
 static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,TaskListType listtype)
 {
 	XLHttpRequest *req;
@@ -447,18 +479,19 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	if (!req) {
 		goto failed;
 	}
+
+	if(listtype==TLTOutofDate||listtype==TLTDeleted){
+		xl_cookies_set_lx_nf_all(client -> cookies, "page_check_all%3Dhistory%26fltask_all_guoqi%3D1%26class_check%3D0%26page_check%3Dtask%26fl_page_id%3D0%26class_check_new%3D0%26set_tab_status%3D11");
+	}else{
+		xl_cookies_set_lx_nf_all(client -> cookies, "");
+	}
+
    	cookies = xl_cookies_get_string(client->cookies);
     if (cookies != NULL) {
 		xl_log(LOG_NOTICE, "cookies=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
-
-	if(listtype==TLTOutofDate||listtype==TLTDeleted){
-		//[self setCookieWithKey:@"lx_nf_all" Value:@"page_check_all%3Dhistory%26fltask_all_guoqi%3D1%26class_check%3D0%26page_check%3Dtask%26fl_page_id%3D0%26class_check_new%3D0%26set_tab_status%3D11"];
-	}else{
-		//[self setCookieWithKey:@"lx_nf_all" Value:@""];
-	}
 
 	ret = xl_http_request_open(req, HTTP_GET, NULL);
 	if (ret != 0) {
@@ -469,14 +502,29 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	{
 		goto failed;
 	}
-    char *content_length = xl_http_request_get_header(req, "Content-Length");
-    if (content_length) {
-        printf("**************len is %ld\n", atoi(content_length));
-        s_free(content_length);
-    }
-	const char *res =	xl_http_request_get_response(req);
-    printf("**************len res is %ld\n", strlen(res));
-	xl_log(LOG_NOTICE, "Request response is %s\n", res);
+
+	char *site_data =	xl_http_request_get_response(req);
+	printf("the data is %s\n", site_data);
+	char *gdriveID = GDriveID(site_data);
+	if (site_data && (strlen(gdriveID) > 0)) 
+	{
+		setGdriveID(client->cookies, gdriveID);
+		s_free(gdriveID);
+		if(has_next_page){
+			*has_next_page=if_has_next_page(site_data);
+		}
+
+		char *re1="<div\\s*class=\"rwbox\"([\\s\\S]*)?<!--rwbox-->";
+		char *tmpD1=string_by_matching(re1, site_data);
+		printf("the rwbox is %s\n", tmpD1);
+		char *re2=NULL;
+		if(listtype==TLTAll|listtype==TLTComplete|listtype==TLTDownloadding){
+			re2="<div\\s*class=\"rw_list\"[\\s\\S]*?<!--\\s*rw_list\\s*-->";
+		}else if (listtype==TLTOutofDate|listtype==TLTDeleted){
+			re2="<div\\s*class=\"rw_list\"[\\s\\S]*?<input\\s*id=\"d_tasktype\\d+\"\\s*type=\"hidden\"\\s*value=[^>]*>";
+		}
+
+	}
 
 failed:
 	xl_log(LOG_NOTICE, "Errored\n");
