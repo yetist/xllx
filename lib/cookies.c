@@ -50,16 +50,18 @@ struct _XLCookies {
 	/* client setup cookie */
 	char *pagenum;
 	/* cookie string for http request */
-	char *cookie_string;
+	char *string_line;
 	char *lx_nf_all;
 	char *lx_login; 
 	char *gdriveid;
 };
 
 #define free_and_strdup(a,b) \
+do{	\
 	if (a != NULL) \
 		s_free(a); \
-	a = s_strdup(b);
+	a = s_strdup(b); \
+}while(0)
 
 XLCookies* xl_cookies_new(void)
 {
@@ -71,7 +73,7 @@ XLCookies* xl_cookies_new(void)
  * @param req  
  * @param key 
  * @param value 
- * @param update_cache Weather update cookie_string member
+ * @param update_cache Weather update string member
  */
 void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache)
 {
@@ -132,20 +134,11 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
     s_free(value);
 
 	if (update_cache) {
-		xl_cookies_update_string(cookies);
+		xl_cookies_update_string_line(cookies);
 	}
 }
 
-void xl_cookies_set_lx_nf_all(XLCookies *cookies, char *value)
-{
-        free_and_strdup(cookies->lx_nf_all, value);
-}
-
-void xl_cookies_set_gdriveid(XLCookies *cookies, char *value)
-{
-        free_and_strdup(cookies->gdriveid, value);
-}
-void xl_cookies_update_string(XLCookies *cookies)
+void xl_cookies_update_string_line(XLCookies *cookies)
 {
 	char buf[4096] = {0};           /* 4K is enough for cookies. */
 	int buflen = 0;
@@ -237,7 +230,7 @@ void xl_cookies_update_string(XLCookies *cookies)
 		snprintf(buf + buflen, sizeof(buf) - buflen, "pagenum=%s; ", cookies->pagenum);
 		buflen = strlen(buf);
 	}
-	free_and_strdup(cookies->cookie_string, buf);
+	free_and_strdup(cookies->string_line, buf);
 }
 
 void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
@@ -263,51 +256,6 @@ void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
 	xl_cookies_update(cookies, req, "userid", update);
 	xl_cookies_update(cookies, req, "in_xl", update);
 	xl_cookies_update(cookies, req, "lx_login", update);
-}
-
-void xl_cookies_set_pagenum(XLCookies *cookies, int pagesize)
-{
-	if (!cookies) {
-		return;
-	}
-	char buf[10];
-	snprintf(buf, sizeof(buf), "%d", pagesize);
-	free_and_strdup(cookies->pagenum, buf);
-	xl_cookies_update_string(cookies);
-}
-
-char *xl_cookies_get_string(XLCookies *cookies)
-{
-    if (cookies && cookies->cookie_string) {
-        return s_strdup(cookies->cookie_string);
-    }
-    return NULL;
-}
-
-char* xl_cookies_get_userid(XLCookies *cookies)
-{
-	if (cookies != NULL) {
-		return s_strdup(cookies->userid);
-	}
-	return NULL;
-}
-
-char *xl_cookies_get_gdriveid(XLCookies *cookies)
-{
-	if (cookies != NULL) {
-		return s_strdup(cookies->gdriveid);
-	}
-	return NULL;
-}
-char* xl_cookies_get_lx_login(XLCookies *cookies)
-{
-	if (cookies != NULL) {
-		char *lx_login = cookies->lx_login;
-		printf("the lx_login is %s\n", lx_login);
-		if (lx_login)
-			return s_strdup(lx_login);
-	}
-	return NULL;
 }
 
 void xl_cookies_free(XLCookies *cookies)
@@ -336,7 +284,35 @@ void xl_cookies_free(XLCookies *cookies)
 		s_free(cookies->lx_login);
 		s_free(cookies->lx_nf_all);
 		s_free(cookies->pagenum);
-		s_free(cookies->cookie_string);
+		s_free(cookies->string_line);
 		s_free(cookies);
 	}
 }
+
+#define get_cookie_func(a) \
+char* xl_cookies_get_##a(XLCookies *cookies) \
+{	\
+	if (cookies != NULL && cookies->a != NULL) {	\
+		return s_strdup(cookies->a);	\
+	}	\
+	return NULL;	\
+}
+
+get_cookie_func(string_line);
+get_cookie_func(userid);
+get_cookie_func(gdriveid);
+get_cookie_func(lx_login);
+
+#define set_cookie_func(a) \
+void xl_cookies_set_##a(XLCookies *cookies, const char* a) \
+{	\
+	if (!cookies) {	\
+		return;	\
+	}	\
+	free_and_strdup(cookies->a, a);	\
+	xl_cookies_update_string_line(cookies);	\
+}
+
+set_cookie_func(pagenum);
+set_cookie_func(gdriveid);
+set_cookie_func(lx_nf_all);

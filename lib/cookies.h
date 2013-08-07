@@ -25,22 +25,27 @@
 
 #include "http.h"
 
+#define _get_cookie_func(a) \
+char* xl_cookies_get_##a(XLCookies *cookies)
+
+#define _set_cookie_func(a) \
+void xl_cookies_set_##a(XLCookies *cookies, const char* a)
+
 typedef struct _XLCookies XLCookies;
 
-XLCookies*  xl_cookies_new(void);
+XLCookies* xl_cookies_new(void);
 void  xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache);
-void  xl_cookies_update_string(XLCookies *cookies);
+void  xl_cookies_update_string_line(XLCookies *cookies);
 void  xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
-
-void xl_cookies_set_lx_nf_all(XLCookies *cookies, char *value);
-
-void  xl_cookies_set_pagenum(XLCookies *cookies, int pagesize);
-char* xl_cookies_get_string(XLCookies *cookies);
-char* xl_cookies_get_userid(XLCookies *cookies);
-char* xl_cookies_get_lx_login(XLCookies *cookies);
 void  xl_cookies_free(XLCookies *cookies);
 
-char *xl_cookies_get_gdriveid(XLCookies *cookies);
-void xl_cookies_set_gdriveid(XLCookies *cookies, char *value);
+_get_cookie_func(string_line);
+_get_cookie_func(userid);
+_get_cookie_func(gdriveid);
+_get_cookie_func(lx_login);
+
+_set_cookie_func(pagenum);
+_set_cookie_func(gdriveid);
+_set_cookie_func(lx_nf_all);
 
 #endif /* __COOKIES_H__ */

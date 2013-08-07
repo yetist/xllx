@@ -104,7 +104,7 @@ void do_login(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-    cookies = xl_cookies_get_string(client->cookies);
+    cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -154,8 +154,8 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	if (!req) {
 		goto failed;
 	}
-	xl_cookies_set_pagenum(client->cookies, 1);
-    cookies = xl_cookies_get_string(client->cookies);
+	xl_cookies_set_pagenum(client->cookies, "1");
+    cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -178,7 +178,7 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	char **cooks;
 	xl_http_request_get_cookie_names(req, &cooks);
 	xl_cookies_receive(client->cookies, req, 1);
-	xl_cookies_set_pagenum(client->cookies, 100);
+	xl_cookies_set_pagenum(client->cookies, "100");
 	*err = XL_ERROR_OK;
 	return 0;
 
@@ -297,7 +297,7 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 
-    cookies = xl_cookies_get_string(client->cookies);
+    cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -345,7 +345,7 @@ static void get_verify_image(XLClient *client)
 		goto failed;
 	}
 
-    cookies = xl_cookies_get_string(client->cookies);
+    cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -512,7 +512,7 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 		xl_cookies_set_lx_nf_all(client -> cookies, "");
 	}
 
-   	cookies = xl_cookies_get_string(client->cookies);
+   	cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		xl_log(LOG_NOTICE, "cookies=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -529,7 +529,7 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 		goto failed;
 	}
 
-	char *site_data =	xl_http_request_get_response(req);
+	char *site_data =	xl_http_request_get_body(req);
 	printf("the data is %s\n", site_data);
 	char *gdriveID = GDriveID(site_data);
 	if (site_data && (strlen(gdriveID) > 0)) 
@@ -551,8 +551,6 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 		}
 
 	}
-	const char *res =	xl_http_request_get_body(req);
-	printf("Request response is %s\n", res);
 
 failed:
 	xl_log(LOG_NOTICE, "Errored\n");
