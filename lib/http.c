@@ -31,7 +31,19 @@
 #define XL_HTTP_USER_AGENT "User-Agent: Mozilla/5.0 \
 	(X11; Linux x86_64; rv:10.0) Gecko/20100101 Firefox/10.0"
 
-#define CHUNK 16 * 1024
+#define CHUNK 1024 * 1024
+
+char* mystrdup(const char *str)
+{
+	size_t siz;
+	char *copy;
+
+	siz = strlen(str) + 1;
+	if ((copy = (char *)malloc(siz)) == NULL)
+		   return(NULL);
+		   (void)memcpy(copy, str, siz);
+	return(copy);
+}
 
 typedef struct _AsyncWatchData AsyncWatchData;
 
@@ -180,6 +192,7 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 			goto failed;
 		}
 
+
 		s_free(*resp);
 		/* Update response data to uncompress data */
 		*resp = s_strdup(outdata);
@@ -319,7 +332,8 @@ int xl_http_request_get_status(XLHttpRequest *request)
 
 char* xl_http_request_get_response(XLHttpRequest *request)
 {
-	return s_strdup(request->response);
+	//return s_strdup(request->response);
+	return request->response;
 }
 
 void xl_http_request_free(XLHttpRequest *request)
