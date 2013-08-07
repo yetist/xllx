@@ -216,7 +216,6 @@ failed:
 		s_free(*resp);
 		*resp = NULL;
 	}
-	printf("return from open\n");
 	return -1;
 }
 
@@ -283,14 +282,13 @@ void xl_http_request_set_header(XLHttpRequest *request, const char *name, const 
 
 static void xl_http_request_set_default_header(XLHttpRequest *request)
 {
-	//xl_http_request_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
+	xl_http_request_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
 	xl_http_request_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
 	xl_http_request_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");
 	xl_http_request_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
 	//xl_http_request_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
-	xl_http_request_set_header(request, "Connection", "Keep-Alive");
-
 	xl_http_request_set_header(request, "Accept-Encoding", "gzip, deflate");
+	xl_http_request_set_header(request, "Connection", "Keep-Alive");
 
 }
 
@@ -348,11 +346,11 @@ char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)
 
 	char *cookie = ghttp_get_cookie(request->req, name);
 	if (!cookie) {
-		xl_log(LOG_WARNING, "No cookie: %s\n", name);
+		//xl_log(LOG_WARNING, "No cookie: %s\n", name);
 		return NULL;
 	}
 
-	xl_log(LOG_DEBUG, "Parse Cookie: %s=%s\n", name, cookie);
+	//xl_log(LOG_DEBUG, "Parse Cookie: %s=%s\n", name, cookie);
 	return cookie;
 }
 
