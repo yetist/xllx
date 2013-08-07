@@ -51,6 +51,8 @@ struct _XLCookies {
 	char *pagenum;
 	/* cookie string for http request */
 	char *cookie_string;
+	char *lx_nf_all;
+	char *lx_login; 
 };
 
 #define free_and_strdup(a,b) \
@@ -121,6 +123,8 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
         free_and_strdup(cookies->userid, value);
     } else if (!strcmp(key, "in_xl")) {
         free_and_strdup(cookies->in_xl, value);
+    } else if (!strcmp(key, "lx_login")) {
+        free_and_strdup(cookies->lx_login, value);
     } else {
         xl_log(LOG_WARNING, "No this cookie: %s\n", key);
     }
@@ -215,6 +219,10 @@ void xl_cookies_update_string(XLCookies *cookies)
 		snprintf(buf + buflen, sizeof(buf) - buflen, "in_xl=%s; ", cookies->in_xl);
 		buflen = strlen(buf);
 	}
+	if (cookies->lx_login) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_login=%s; ", cookies->lx_login);
+		buflen = strlen(buf);
+	}
 	if (cookies->pagenum) {
 		snprintf(buf + buflen, sizeof(buf) - buflen, "pagenum=%s; ", cookies->pagenum);
 		buflen = strlen(buf);
@@ -244,6 +252,7 @@ void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
 	xl_cookies_update(cookies, req, "upgrade", update);
 	xl_cookies_update(cookies, req, "userid", update);
 	xl_cookies_update(cookies, req, "in_xl", update);
+	xl_cookies_update(cookies, req, "lx_login", update);
 }
 
 void xl_cookies_set_pagenum(XLCookies *cookies, int pagesize)
@@ -273,6 +282,17 @@ char* xl_cookies_get_userid(XLCookies *cookies)
 	return NULL;
 }
 
+char* xl_cookies_get_lx_login(XLCookies *cookies)
+{
+	if (cookies != NULL) {
+		char *lx_login = cookies->lx_login;
+		printf("the lx_login is %s\n", lx_login);
+		if (lx_login)
+			return s_strdup(lx_login);
+	}
+	return NULL;
+}
+
 void xl_cookies_free(XLCookies *cookies)
 {
 	if (cookies != NULL) {
@@ -296,6 +316,7 @@ void xl_cookies_free(XLCookies *cookies)
 		s_free(cookies->upgrade);
 		s_free(cookies->userid);
 		s_free(cookies->in_xl);
+		s_free(cookies->lx_login);
 		s_free(cookies->pagenum);
 		s_free(cookies->cookie_string);
 		s_free(cookies);

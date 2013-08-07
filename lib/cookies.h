@@ -35,6 +35,7 @@ void  xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
 void  xl_cookies_set_pagenum(XLCookies *cookies, int pagesize);
 char* xl_cookies_get_string(XLCookies *cookies);
 char* xl_cookies_get_userid(XLCookies *cookies);
+char* xl_cookies_get_lx_login(XLCookies *cookies);
 void  xl_cookies_free(XLCookies *cookies);
 
 #endif /* __COOKIES_H__ */

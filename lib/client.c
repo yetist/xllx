@@ -163,6 +163,7 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
+	xl_cookies_receive(client->cookies, req, 1);
 
 	printf("status code=%d\n", xl_http_request_get_status(req));
 	int status_code = xl_http_request_get_status(req);
@@ -466,17 +467,25 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	int ret;
 	char *cookies;
 	XLErrorCode err;
+
 	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
 	req = xl_http_request_create_default(url, &err);
-    cookies = xl_cookies_get_string(client->cookies);
 	if (!req) {
 		goto failed;
 	}
+   	cookies = xl_cookies_get_string(client->cookies);
     if (cookies != NULL) {
 		xl_log(LOG_NOTICE, "cookies=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
+
+	if(listtype==TLTOutofDate||listtype==TLTDeleted){
+		//[self setCookieWithKey:@"lx_nf_all" Value:@"page_check_all%3Dhistory%26fltask_all_guoqi%3D1%26class_check%3D0%26page_check%3Dtask%26fl_page_id%3D0%26class_check_new%3D0%26set_tab_status%3D11"];
+	}else{
+		//[self setCookieWithKey:@"lx_nf_all" Value:@""];
+	}
+
 	ret = xl_http_request_open(req, HTTP_GET, NULL);
 	if (ret != 0) {
 		goto failed;
@@ -486,16 +495,17 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	{
 		goto failed;
 	}
-	//add cookies.
-	char *content_length = xl_http_request_get_header(req, "Content-Length");
-	if (content_length) {
-		const char *res =	xl_http_request_get_response(req);
-		xl_log(LOG_NOTICE, "Request response is %s\n", res);
-		//here parse the response
-	}
+    char *content_length = xl_http_request_get_header(req, "Content-Length");
+    if (content_length) {
+        printf("**************len is %ld\n", atoi(content_length));
+        s_free(content_length);
+    }
+	const char *res =	xl_http_request_get_response(req);
+    printf("**************len res is %ld\n", strlen(res));
+	xl_log(LOG_NOTICE, "Request response is %s\n", res);
 
 failed:
-	xl_log(LOG_NOTICE, "Errored");
+	xl_log(LOG_NOTICE, "Errored\n");
 	xl_http_request_free(req);
 
 }

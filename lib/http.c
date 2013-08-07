@@ -31,7 +31,19 @@
 #define XL_HTTP_USER_AGENT "User-Agent: Mozilla/5.0 \
 	(X11; Linux x86_64; rv:10.0) Gecko/20100101 Firefox/10.0"
 
-#define CHUNK 16 * 1024
+#define CHUNK 1024 * 1024
+
+char* mystrdup(const char *str)
+{
+	size_t siz;
+	char *copy;
+
+	siz = strlen(str) + 1;
+	if ((copy = (char *)malloc(siz)) == NULL)
+		   return(NULL);
+		   (void)memcpy(copy, str, siz);
+	return(copy);
+}
 
 typedef struct _AsyncWatchData AsyncWatchData;
 
@@ -170,21 +182,16 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 	/* Uncompress data here if we have a Content-Encoding header */
 	char *enc_type = NULL;
 	enc_type = xl_http_request_get_header(request, "Content-Encoding");
-    printf("enc_type=%s\n", enc_type);
-    printf("len=%d, resp=%s\n", have_read_bytes, *resp);
-    int fd=creat("/tmp/xxxx", S_IRUSR|S_IWUSR);
-    write(fd, *resp, have_read_bytes);
-    close(fd);
 	if (enc_type && strstr(enc_type, "gzip")) {
 		char *outdata;
 		int total = 0;
 
 		outdata = ungzip(*resp, have_read_bytes, &total);
-            printf("outdata=%s\n", outdata);
 		if (!outdata) {
 			s_free(enc_type);
 			goto failed;
 		}
+
 
 		s_free(*resp);
 		/* Update response data to uncompress data */
@@ -200,6 +207,7 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 		*resp = s_realloc(*resp, have_read_bytes + 1);
 		(*resp)[have_read_bytes] = '\0';
 	}
+	request->resp_len = have_read_bytes;
 	request->http_code = ghttp_status_code(request->req);
 	return 0;
 
@@ -355,14 +363,12 @@ int xl_http_request_get_status(XLHttpRequest *request)
 
 char* xl_http_request_get_body(XLHttpRequest *request)
 {
-    //return ghttp_get_body(request->req);
-    //return resqughttp_get_body(request->req);
     return request->response;
 }
 
 int xl_http_request_get_body_len(XLHttpRequest *request)
 {
-    return ghttp_get_body_len(request->req);
+	return request->resp_len;
 }
 
 void xl_http_request_free(XLHttpRequest *request)
