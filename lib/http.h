@@ -47,7 +47,7 @@ void xl_http_request_set_header(XLHttpRequest *request, const char *name, const 
 char*       xl_http_request_get_header(XLHttpRequest *request, const char *name);
 char*       xl_http_request_get_cookie(XLHttpRequest *request, const char *name);
 int         xl_http_request_get_status(XLHttpRequest *request);
-const char* xl_http_request_get_response(XLHttpRequest *request);
+char* xl_http_request_get_response(XLHttpRequest *request);
 
 void xl_http_request_free(XLHttpRequest *request);
 
