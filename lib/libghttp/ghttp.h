@@ -178,6 +178,10 @@ const char *
 ghttp_get_header(ghttp_request *a_request,
 		 const char *a_hdr);
 
+int
+ghttp_get_cookie_names(ghttp_request *a_request,
+        char ***a_cookies, int *a_num_cookies);
+
 /* Get a_name's cookie, caller must free the return string */
 char * ghttp_get_cookie(ghttp_request *a_request, const char *a_hdr);
 

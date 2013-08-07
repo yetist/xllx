@@ -105,7 +105,6 @@ void do_login(XLClient *client, XLErrorCode *err)
 	}
 
     cookies = xl_cookies_get_string(client->cookies);
-	printf("Set-Cookie=%s\n", cookies);
     if (cookies != NULL) {
 		printf("Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
@@ -125,6 +124,8 @@ void do_login(XLClient *client, XLErrorCode *err)
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	char **cooks;
+	xl_http_request_get_cookie_names(req, &cooks);
 
 	xl_cookies_receive(client->cookies, req, 1);
 	char *userid;
@@ -146,6 +147,8 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	char *cookies;
 	int ret;
 
+	//"http://vip.xunlei.com/domain.html"
+	//http://dynamic.cloud.vip.xunlei.com/login?cachetime=1375861841423&cachetime=1375861842103&from=0
 	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
 	req = xl_http_request_create_default(url, err);
 	if (!req) {
@@ -165,32 +168,45 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	}
 	xl_cookies_receive(client->cookies, req, 1);
 
-	if (xl_http_request_get_status(req) != 200)
+	printf("status code=%d\n", xl_http_request_get_status(req));
+	int status_code = xl_http_request_get_status(req);
+	if (status_code != 302)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	char **cooks;
+	xl_http_request_get_cookie_names(req, &cooks);
+	xl_cookies_receive(client->cookies, req, 1);
 	xl_cookies_set_pagenum(client->cookies, 100);
+	*err = XL_ERROR_OK;
+	return 0;
 
+#if 0
 	char *page;
-	page = xl_http_request_get_response(req);
-	if (strlen(page) > 512)
+	page = xl_http_request_get_body(req);
+	if (page && strlen(page) > 70)
 	{
 		s_free(page);
-		xl_cookies_receive(client->cookies, req, 1);
 		xl_http_request_free(req);
+		*err = XL_ERROR_OK;
 		return 0;
+	} else {
+		*err = XL_ERROR_ERROR;
 	}
+	printf("page=%s\n", page);
+#endif
 failed:
 	xl_http_request_free(req);
-	return 1;
+	return -1;
 }
 
 int xl_client_login(XLClient *client, XLErrorCode *err)
 {
     if (!client) {
         xl_log(LOG_ERROR, "Invalid pointer\n");
-        return XL_ERROR_ERROR;
+        *err = XL_ERROR_ERROR;
+		return -1;
     }
 
 	if (!client->vcode) {
@@ -212,17 +228,27 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 				return -1;
 		}
 	}
-    
     do_login(client, err);
 	return is_login_ok(client, err);
-    //do_login2(client, md5, err);
-//    s_free(md5);
-
-    /* Free old value */
-//    lwqq_vc_free(client->vc);
-//    client->vc = NULL;
-    return 0;
 }
+
+/*
+ *有两种方法可以实现logout
+ *第一种清空Cookies，第二种访问http://dynamic.vip.xunlei.com/login/indexlogin_contr/logout/，本方法采用了第一种速度快，现在也没发现什么问题。
+ */
+//int xl_client_logout(XLClient *client, XLErrorCode *err)
+//{
+//		ckeys = ["vip_isvip","lx_sessionid","vip_level","lx_login","dl_enable","in_xl","ucid","lixian_section"]
+//		ckeys1 = ["sessionid","usrname","nickname","usernewno","userid"]
+//		gdriveid
+//
+//		self.del_cookie('.vip.xunlei.com', 'gdriveid')
+//		for k in ckeys:
+//			self.set_cookie('.vip.xunlei.com', k, '')
+//		for k in ckeys1:
+//			self.set_cookie('.xunlei.com', k, '')
+//		self.save_cookies()
+//}
 
 static char* encode_password(const char* password, const char* vcode)
 {
@@ -525,6 +551,8 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 		}
 
 	}
+	const char *res =	xl_http_request_get_body(req);
+	printf("Request response is %s\n", res);
 
 failed:
 	xl_log(LOG_NOTICE, "Errored\n");

@@ -49,7 +49,7 @@ typedef struct _AsyncWatchData AsyncWatchData;
 
 struct _XLHttpRequest
 {
-	void *req;
+	ghttp_request *req;
 	int http_code;
 	char *response;
 	int resp_len;
@@ -207,6 +207,7 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 		*resp = s_realloc(*resp, have_read_bytes + 1);
 		(*resp)[have_read_bytes] = '\0';
 	}
+	request->resp_len = have_read_bytes;
 	request->http_code = ghttp_status_code(request->req);
 	return 0;
 
@@ -308,6 +309,36 @@ char *xl_http_request_get_header(XLHttpRequest *request, const char *name)
 	return s_strdup(h);
 }
 
+/*
+ * return count of cookies
+ */
+int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
+{
+    int ret;
+    char **cookies;
+    int nums;
+    ret = ghttp_get_cookie_names(request->req, &cookies, &nums);
+    if (ret != 0)
+    {
+        return 0;
+    }
+    *names = cookies;
+    /* just for print */
+    int i;
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i]){
+            printf("[COOKIE]%s\n", cookies[i]);
+            //s_free(cookies[i]);
+            //cookies[i] = NULL;
+        }
+    }
+    //s_free(cookies);
+    //*names = 0;
+    /* end for print */
+    return nums;
+}
+
 char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)
 {
 	if (!name) {
@@ -330,10 +361,14 @@ int xl_http_request_get_status(XLHttpRequest *request)
 	return request->http_code;
 }
 
-char* xl_http_request_get_response(XLHttpRequest *request)
+char* xl_http_request_get_body(XLHttpRequest *request)
 {
-	//return s_strdup(request->response);
-	return request->response;
+    return request->response;
+}
+
+int xl_http_request_get_body_len(XLHttpRequest *request)
+{
+	return request->resp_len;
 }
 
 void xl_http_request_free(XLHttpRequest *request)
