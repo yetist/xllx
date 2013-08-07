@@ -495,14 +495,10 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	{
 		goto failed;
 	}
-    char *content_length = xl_http_request_get_header(req, "Content-Length");
-    if (content_length) {
-        printf("**************len is %ld\n", atoi(content_length));
-        s_free(content_length);
-    }
-	const char *res =	xl_http_request_get_response(req);
-    printf("**************len res is %ld\n", strlen(res));
-	xl_log(LOG_NOTICE, "Request response is %s\n", res);
+
+	const char *res =	xl_http_request_get_body(req);
+    printf("**************len res is %d\n", xl_http_request_get_body_len(req));
+	printf("Request response is %s\n", res);
 
 failed:
 	xl_log(LOG_NOTICE, "Errored\n");
