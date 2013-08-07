@@ -526,12 +526,8 @@ static void xl_tasks_with_URL(XLClient *client, char *url, int *has_next_page,Ta
 	{
 		goto failed;
 	}
-	char *content_length = xl_http_request_get_header(req, "Content-Length");
-	if (content_length) {
-		const char *res =	xl_http_request_get_response(req);
-		xl_log(LOG_NOTICE, "Request response is %s\n", res);
-		//here parse the response
-	}
+	const char *res =	xl_http_request_get_response(req);
+	xl_log(LOG_NOTICE, "Request response is %s\n", res);
 
 failed:
 	xl_log(LOG_NOTICE, "Errored");
