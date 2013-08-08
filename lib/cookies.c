@@ -53,6 +53,8 @@ struct _XLCookies {
 	char *string_line;
 	char *lx_nf_all;
 	char *lx_login; 
+	char *lx_sessionid; 
+	char *lsessionid; 
 	char *gdriveid;
 };
 
@@ -128,6 +130,10 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
         free_and_strdup(cookies->in_xl, value);
     } else if (!strcmp(key, "lx_login")) {
         free_and_strdup(cookies->lx_login, value);
+    } else if (!strcmp(key, "lx_sessionid")) {
+        free_and_strdup(cookies->lx_sessionid, value);
+    } else if (!strcmp(key, "lsessionid")) {
+        free_and_strdup(cookies->lsessionid, value);
     } else {
         xl_log(LOG_WARNING, "No this cookie: %s\n", key);
     }
@@ -226,6 +232,14 @@ void xl_cookies_update_string_line(XLCookies *cookies)
 		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_login=%s; ", cookies->lx_login);
 		buflen = strlen(buf);
 	}
+	if (cookies->lx_sessionid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_sessionid=%s; ", cookies->lx_sessionid);
+		buflen = strlen(buf);
+	}
+	if (cookies->lsessionid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lsessionid=%s; ", cookies->lsessionid);
+		buflen = strlen(buf);
+	}
 	if (cookies->pagenum) {
 		snprintf(buf + buflen, sizeof(buf) - buflen, "pagenum=%s; ", cookies->pagenum);
 		buflen = strlen(buf);
@@ -317,3 +331,17 @@ void xl_cookies_set_##a(XLCookies *cookies, const char* a) \
 set_cookie_func(pagenum);
 set_cookie_func(gdriveid);
 set_cookie_func(lx_nf_all);
+
+#define clear_cookie_func(a) \
+void  xl_cookies_clear_##a(XLCookies *cookies) \
+{ \
+	if (cookies != NULL && cookies->a != NULL) \
+		s_free(cookies->a); \
+	cookies->a = NULL; \
+	xl_cookies_update_string_line(cookies); \
+}
+
+clear_cookie_func(sessionid);
+clear_cookie_func(lsessionid);
+clear_cookie_func(lx_sessionid);
+clear_cookie_func(lx_login);

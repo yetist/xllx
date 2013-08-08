@@ -321,20 +321,34 @@ int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
         return 0;
     }
     *names = cookies;
-    /* just for print */
-    int i;
+    return nums;
+}
+
+int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
+{
+    int i, nums;
+	char **cookies;
+	int found = -1;
+
+	nums = xl_http_request_get_cookie_names(request->req, &cookies);
     for (i=0 ; i < nums; i++)
     {
-        if (cookies[i]){
-            printf("[COOKIE]%s\n", cookies[i]);
-            //s_free(cookies[i]);
-            //cookies[i] = NULL;
+        if (cookies[i] != NULL && strcmp(cookies[i], key) == 0){
+			found = 0;
+			break;
         }
     }
-    //s_free(cookies);
-    //*names = 0;
-    /* end for print */
-    return nums;
+
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i] != NULL){
+            s_free(cookies[i]);
+            cookies[i] = NULL;
+        }
+	}
+	s_free(cookies);
+
+	return found;
 }
 
 char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)

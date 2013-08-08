@@ -67,6 +67,8 @@ static void get_verify_image(XLClient *client);
 static char *string_toupper(const char *str);
 static char* encode_password(const char* password, const char* vcode);
 static int re_match(const char* pattern, const char* str);
+static void xl_client_show_cookie_names(XLHttpRequest *request);
+static XLHttpRequest *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, XLErrorCode *err);
 //static char *parse_string(const char* pattern, const char* str);
 
 XLClient *xl_client_new(const char *username, const char *password)
@@ -107,34 +109,17 @@ void do_login(XLClient *client, XLErrorCode *err)
 	char *cookies;
 	int ret;
 
-	snprintf(url, sizeof(url), "http://login.xunlei.com/sec2login/");
-	req = xl_http_request_create_default(url, err);
-	if (!req) {
-		goto failed;
-	}
-
-    cookies = xl_cookies_get_string_line(client->cookies);
-    if (cookies != NULL) {
-		printf("Set-Cookie=%s\n", cookies);
-		xl_http_request_set_header(req, "Cookie", cookies);
-        s_free(cookies);
-    }
-
 	create_post_data(client, msg, sizeof(msg));
-	xl_log(LOG_NOTICE, "%s\n", msg);
-	ret = xl_http_request_open(req, HTTP_POST, msg);
-	if (ret != 0) {
-		*err = XL_ERROR_NETWORK_ERROR;
-		goto failed;
-	}
-
+	req = xl_client_open_url(client, "http://login.xunlei.com/sec2login/", HTTP_POST, msg, err);
+	if (req == NULL)
+		return;
 	if (xl_http_request_get_status(req) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	char **cooks;
-	xl_http_request_get_cookie_names(req, &cooks);
+
+	xl_client_show_cookie_names(req);
 
 	xl_cookies_receive(client->cookies, req, 1);
 	char *userid;
@@ -144,8 +129,9 @@ void do_login(XLClient *client, XLErrorCode *err)
 		*err = XL_ERROR_OK;
 		printf("login successfully!\nuserid=%s\n", userid);
 	}
-
 failed:
+	s_free(client->vcode);
+	client->vcode = NULL;
 	xl_http_request_free(req);
 }
 
@@ -159,38 +145,28 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	//"http://vip.xunlei.com/domain.html"
 	//http://dynamic.cloud.vip.xunlei.com/login?cachetime=1375861841423&cachetime=1375861842103&from=0
 	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
-	req = xl_http_request_create_default(url, err);
-	if (!req) {
-		goto failed;
-	}
 	xl_cookies_set_pagenum(client->cookies, "1");
-    cookies = xl_cookies_get_string_line(client->cookies);
-    if (cookies != NULL) {
-		printf("Set-Cookie=%s\n", cookies);
-		xl_http_request_set_header(req, "Cookie", cookies);
-        s_free(cookies);
-    }
-	ret = xl_http_request_open(req, HTTP_GET, NULL);
-	if (ret != 0) {
-		*err = XL_ERROR_NETWORK_ERROR;
+	req = xl_client_open_url(client, url, HTTP_GET, NULL, err);
+	if (req == NULL){
 		goto failed;
 	}
 	xl_cookies_receive(client->cookies, req, 1);
-
 	printf("status code=%d\n", xl_http_request_get_status(req));
 	int status_code = xl_http_request_get_status(req);
 	if (status_code != 302)
 	{
+		printf("[----html----\n%s\n----html----]\n", xl_http_request_get_response(req));
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	char **cooks;
-	xl_http_request_get_cookie_names(req, &cooks);
+	xl_client_show_cookie_names(req);
+	xl_cookies_clear_sessionid(client->cookies);
+	xl_cookies_clear_lx_login(client->cookies);
+	xl_cookies_clear_lx_sessionid(client->cookies);
+	xl_cookies_clear_lsessionid(client->cookies);
 	xl_cookies_receive(client->cookies, req, 1);
-	xl_cookies_set_pagenum(client->cookies, "100");
 	*err = XL_ERROR_OK;
 	return 0;
-
 #if 0
 	char *page;
 	page = xl_http_request_get_body(req);
@@ -206,6 +182,7 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 	printf("page=%s\n", page);
 #endif
 failed:
+	xl_cookies_set_pagenum(client->cookies, "100");
 	xl_http_request_free(req);
 	return -1;
 }
@@ -258,6 +235,57 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 //			self.set_cookie('.xunlei.com', k, '')
 //		self.save_cookies()
 //}
+static void xl_client_show_cookie_names(XLHttpRequest *request)
+{
+    int i, nums;
+	char **cookies;
+
+	nums = xl_http_request_get_cookie_names(request, &cookies);
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i] != NULL){
+            printf("[COOKIE]%s\n", cookies[i]);
+        }
+    }
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i] != NULL){
+            s_free(cookies[i]);
+            cookies[i] = NULL;
+        }
+	}
+	s_free(cookies);
+}
+
+/*
+ * setup cookies and request url
+ * then XLHttpRequest pointer
+ * don't forget to free it with xl_http_request_free(req);
+ * */
+static XLHttpRequest *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, XLErrorCode *err)
+{
+	XLHttpRequest *req;
+	char *cookies;
+	int ret;
+	req = xl_http_request_create_default(url, err);
+	if (!req) {
+		goto failed;
+	}
+    cookies = xl_cookies_get_string_line(client->cookies);
+    if (cookies != NULL) {
+		printf("Set-Cookie=%s\n", cookies);
+		xl_http_request_set_header(req, "Cookie", cookies);
+        s_free(cookies);
+    }
+	ret = xl_http_request_open(req, method, post_data);
+	if (ret != 0) {
+		goto failed;
+	}
+	return req;
+failed:
+	xl_http_request_free(req);
+	return NULL;
+}
 
 static char* encode_password(const char* password, const char* vcode)
 {

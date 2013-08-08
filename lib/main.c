@@ -74,7 +74,11 @@ void test_client(const char* username, const char* password)
 		err = XL_ERROR_OK;
 		ret = xl_client_login(client, &err);
 	}
-    printf("ret=%d\n", err);
+	if (ret != 0)
+	{
+		printf("login failed! return code = %d\n", err);
+		return;
+	}
 	//xl_read_all_complete_tasks(client);
 	xl_add_yun_task(client, NULL);
 }
