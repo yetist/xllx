@@ -302,6 +302,7 @@ get_cookie_func(string_line);
 get_cookie_func(userid);
 get_cookie_func(gdriveid);
 get_cookie_func(lx_login);
+get_cookie_func(sessionid);
 
 #define set_cookie_func(a) \
 void xl_cookies_set_##a(XLCookies *cookies, const char* a) \

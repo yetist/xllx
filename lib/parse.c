@@ -285,3 +285,17 @@ char *string_by_matching(char *pattern, char *str)
 	}
 	return NULL;
 }
+
+//取得GCID
+char *get_gcid(char *taskDownLoadURL){
+	char *rex="&g=([^&]*)&";
+	char *string = parse_string(rex, taskDownLoadURL, 0);
+	if (string)
+	{
+		printf("GCID is %s", string);
+		return string;
+	}
+
+	return NULL;
+}
+

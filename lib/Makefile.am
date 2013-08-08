@@ -25,12 +25,14 @@ libxllx_la_SOURCES = 	\
 libxllx_la_CFLAGS =	\
 	$(DEBUG_FLAGS) \
 	$(ZLIB_FLAGS) \
-	$(GHTTP_CFLAGS)
+	$(GHTTP_CFLAGS)\
+	$(JSON_CFLAGS)
 
 libxllx_la_LIBADD =	\
 	$(GHTTP_LIBS)	\
 	$(ZLIB_LIBS) \
-	$(EV_LIBS)
+	$(EV_LIBS) \
+	$(JSON_LIBS)
 
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
@@ -38,8 +40,8 @@ libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
 #noinst_HEADERS =
 noinst_PROGRAMS = testxl
 testxl_SOURCES = main.c
-testxl_CFLAGS = -I$(top_srcdir)/lib $(GHTTP_CFLAGS)
-testxl_LDADD = $(lib_LTLIBRARIES) $(GHTTP_LIBS) $(ZLIB_LIBS) $(GHTTP_LIBS) -lpthread
+testxl_CFLAGS = -I$(top_srcdir)/lib $(GHTTP_CFLAGS)  $(JSON_CFLAGS)
+testxl_LDADD = $(lib_LTLIBRARIES) $(GHTTP_LIBS) $(ZLIB_LIBS) $(GHTTP_LIBS) -lpthread $(JSON_LIBS)
 
 header_DATA = xllx.h
 headerdir = $(includedir)

@@ -43,6 +43,7 @@ _get_cookie_func(string_line);
 _get_cookie_func(userid);
 _get_cookie_func(gdriveid);
 _get_cookie_func(lx_login);
+_get_cookie_func(sessionid);
 
 _set_cookie_func(pagenum);
 _set_cookie_func(gdriveid);

@@ -75,7 +75,8 @@ void test_client(const char* username, const char* password)
 		ret = xl_client_login(client, &err);
 	}
     printf("ret=%d\n", err);
-	xl_read_all_complete_tasks(client);
+	//xl_read_all_complete_tasks(client);
+	xl_add_yun_task(client, NULL);
 }
 
 int main(int argc, char** argv)
