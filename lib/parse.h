@@ -25,5 +25,6 @@ char *GCID(char *taskDownLoadURL);
 char *nextPageSubURL(char *currentPageData);
 
 char *string_by_matching(char *pattern, char *str);
+char *get_gcid(char *taskDownLoadURL);
 
 #endif

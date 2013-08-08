@@ -30,6 +30,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <json.h>
+
 #include "xllx.h"
 #include "client.h"
 #include "http.h"
@@ -49,6 +51,14 @@ struct _XLClient
 	char *vcode;
 	char *vimgpath;
     XLCookies *cookies;
+};
+struct _XLYun
+{
+    char *size;             /**< Username */
+    char *url;             /**< Password */
+	char *dcid;
+	char *filename;
+    YUNZHUANMAQuality q;
 };
 
 static long get_current_timestamp(void);
@@ -654,3 +664,160 @@ void xl_read_delete_tasks_with_page(XLClient *client, int pg)
 	xl_tasks_with_status_with_page(client, TLTDeleted, pg, NULL);
 }
 
+int xl_add_yun_task(XLClient *client, char *url)
+{
+
+	XLHttpRequest *req;
+	char *cookies;
+	int ret;
+	XLErrorCode *err;
+	url = "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=";
+	char *userid;
+	char *sessionid;
+	struct json_object *new_obj;
+	struct json_object *new_array;
+	struct json_object *urls_obj;
+	char *pname_argument;
+	userid = xl_cookies_get_userid(client->cookies);
+	if (userid != NULL)
+	{
+		printf("\nuserid=%s\n", userid);
+	}
+
+	sessionid = xl_cookies_get_sessionid(client->cookies);
+	if (sessionid != NULL)
+	{
+		printf("\nsessionid=%s\n", sessionid);
+	}
+	new_obj = json_object_new_object();
+	json_object_object_add(new_obj, "id", json_object_new_int(0));
+	if (url)
+	{
+		char *en_url = url_encode(url);
+		json_object_object_add(new_obj, "url", json_object_new_string(en_url));
+		json_object_get(new_obj);
+	}
+	new_array = json_object_new_array();
+	json_object_array_add(new_array, new_obj);
+	urls_obj = json_object_new_object();
+	json_object_object_add(urls_obj, "urls", new_array);
+	
+	printf("to_string()=%s\n", json_object_to_json_string(urls_obj));
+	pname_argument = (char *)json_object_to_json_string(urls_obj);
+
+
+//	char *post_argument = "{\"urls\":[{\"id\":0,\"url\":\"thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=\"}]}";
+	//snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/interface/cloud_build_task/");
+
+	char post_url[512];
+	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_video_name?from=vlist&platform=0");
+	req = xl_http_request_create_default(post_url, err);
+	if (!req) {
+	}
+
+	cookies = xl_cookies_get_string_line(client->cookies);
+	if (cookies != NULL) {
+		printf("Set-Cookie=%s\n", cookies);
+		xl_http_request_set_header(req, "Cookie", cookies);
+		s_free(cookies);
+	}
+
+
+	xl_log(LOG_NOTICE, "%s\n", pname_argument);
+	ret = xl_http_request_open(req, HTTP_POST, pname_argument);
+	if (ret != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
+	}
+
+	if (xl_http_request_get_status(req) != 200)
+	{
+		*err = XL_ERROR_HTTP_ERROR;
+	}
+
+	printf("get response %s\n",  xl_http_request_get_response(req));
+	char *response = xl_http_request_get_response(req);
+	printf("get body %s\n", xl_http_request_get_body(req));
+	xl_http_request_free(req);
+	struct json_object *resp;
+	struct json_object *resp_obj;
+	struct json_object *res_array;
+	struct json_object *obj;
+	char *name = NULL;
+
+	resp = json_tokener_parse(response);
+	int rest = json_object_object_get(resp, "ret");
+	printf("the ret is %d\n", rest);
+	if (rest == 0)
+	{
+		resp_obj = json_object_object_get(resp, "resp"); 
+		if (resp_obj)
+		{
+			printf ("resp_obj: %s\n", json_object_to_json_string(resp_obj));
+			res_array = json_object_object_get(resp_obj, "res"); 
+			if (res_array)
+			{
+				printf ("res_array: %s\n", json_object_to_json_string(res_array));
+				obj = json_object_array_get_idx(res_array, 0);
+				if (obj)
+				{
+					printf ("obj: %s\n", json_object_to_json_string(obj));
+					char *n = json_object_object_get(obj, "name"); 
+					char *url = json_object_object_get(obj, "url"); 
+					if (n)
+					{
+						name = strdup(json_object_to_json_string(n));
+						printf("name : %s\n", name);
+					}
+				}
+			}
+		}
+	}
+	if (name)
+	{
+		printf("name : %s\n", name);
+		char *en_name = url_encode(name);
+		urls_obj = json_object_object_get(resp, "urls");
+
+		printf("to_string()=%s\n", json_object_to_json_string(urls_obj));
+		pname_argument = (char *)json_object_to_json_string(urls_obj);
+		json_object_put(urls_obj);
+	}
+
+	char p_url[512];
+	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=%s&sessionid=%s", userid, sessionid);
+	printf("p_url is %s \n", p_url);
+
+	return 0;
+
+
+
+	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=288543553&sessionid=A6F192D43C92673346293912FE90038E1E7C54C3908F65280B0F161388C9BF419B1077ACA4EB9B26674355855F07848E7DE995B81B117104DFA2897F899A87C2C6F661640DA61F7F91EA39CD60F09478");
+	char *p_ar = "{\"urls\":[{\"id\":0,\"url\":\"thunder%3A%2F%2FQUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo%3D\",\"name\":\"%5B%E9%98%B3%E5%85%89%E7%94%B5%E5%BD%B1www.ygdy8.com%5D.%E5%8F%B6%E9%97%AE%EF%BC%9A%E7%BB%88%E6%9E%81%E4%B8%80%E6%88%98.BD.720p.%E5%9B%BD%E7%B2%A4%E5%8F%8C%E8%AF%AD%E4%B8%AD%E5%AD%97.mkv\"}]}";
+	req = xl_http_request_create_default(p_url, err);
+	cookies = xl_cookies_get_string_line(client->cookies);
+	if (cookies != NULL) {
+		printf("Set-Cookie=%s\n", cookies);
+		xl_http_request_set_header(req, "Cookie", cookies);
+		s_free(cookies);
+	}
+	//xl_log(LOG_NOTICE, "%s\n", p_argument);
+	//char *url_en = url_encode(p_argument);
+
+	//xl_log(LOG_NOTICE, "%s\n", url_en);
+	ret = xl_http_request_open(req, HTTP_POST, p_ar);
+	if (ret != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
+	}
+
+	if (xl_http_request_get_status(req) != 200)
+	{
+		*err = XL_ERROR_HTTP_ERROR;
+	}
+
+
+	printf("get response %s\n",  xl_http_request_get_response(req));
+	printf("get body %s\n", xl_http_request_get_body(req));
+	xl_http_request_free(req);
+
+	return 0;
+}
