@@ -83,7 +83,7 @@ XLClient *xl_client_new(const char *username, const char *password)
 	client->password = s_strdup(password);
 	client->cookies = xl_cookies_new();
 
-	xl_log(LOG_DEBUG, "Create a new client with username:%s, password:%s successfully\n", client->username, client->password);
+	//xl_log(LOG_DEBUG, "Create a new client with username:%s, password:%s successfully\n", client->username, client->password);
 	return client;
 }
 
@@ -101,41 +101,36 @@ static void create_post_data(XLClient *client, char *buf, int buflen)
     s_free(s);
 }
 
-void do_login(XLClient *client, XLErrorCode *err)
+int xl_client_check_verify_code(XLClient *client, XLErrorCode *err)
 {
     char msg[512] ={0};
 	XLHttpRequest *req;
 	char url[512];
 	char *cookies;
-	int ret;
+	int ret = -1;
 
 	create_post_data(client, msg, sizeof(msg));
 	req = xl_client_open_url(client, "http://login.xunlei.com/sec2login/", HTTP_POST, msg, err);
 	if (req == NULL)
-		return;
+		return -1;
 	if (xl_http_request_get_status(req) != 200)
 	{
-		*err = XL_ERROR_HTTP_ERROR;
+		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-
-	xl_client_show_cookie_names(req);
-
-	xl_cookies_receive(client->cookies, req, 1);
-	char *userid;
-	userid = xl_cookies_get_userid(client->cookies);
-	if (userid != NULL)
+	if (xl_http_request_has_cookie(req, "userid") != 0)
 	{
-		*err = XL_ERROR_OK;
-		printf("login successfully!\nuserid=%s\n", userid);
+    	err = XL_ERROR_LOGIN_NEED_VC;
+		goto failed;
 	}
+	ret = 0;
+	xl_cookies_receive(client->cookies, req, 1);
 failed:
-	s_free(client->vcode);
-	client->vcode = NULL;
 	xl_http_request_free(req);
+	return ret;
 }
 
-int is_login_ok(XLClient *client, XLErrorCode *err)
+int do_login(XLClient *client, XLErrorCode *err)
 {
 	XLHttpRequest *req;
 	char url[512];
@@ -159,7 +154,6 @@ int is_login_ok(XLClient *client, XLErrorCode *err)
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	xl_client_show_cookie_names(req);
 	xl_cookies_clear_sessionid(client->cookies);
 	xl_cookies_clear_lx_login(client->cookies);
 	xl_cookies_clear_lx_sessionid(client->cookies);
@@ -197,25 +191,31 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 
 	if (!client->vcode) {
 		get_verify_code(client, err);
-		printf("err=%d\n", *err);
 		switch (*err) {
 			case XL_ERROR_LOGIN_NEED_VC:
 				get_verify_image(client);
 				xl_log(LOG_WARNING, "Need to enter verify code\n");
 				return -1;
+			case XL_ERROR_HTTP_ERROR:
 			case XL_ERROR_NETWORK_ERROR:
 				xl_log(LOG_ERROR, "Network error\n");
 				return -1;
 			case XL_ERROR_OK:
-				xl_log(LOG_DEBUG, "Get verify code OK\n");
+				//xl_log(LOG_DEBUG, "Get verify code OK\n");
 				break;
 			default:
 				xl_log(LOG_ERROR, "Unknown error\n");
 				return -1;
 		}
 	}
-    do_login(client, err);
-	return is_login_ok(client, err);
+
+	if (xl_client_check_verify_code(client, err) != 0)
+	{
+		s_free(client->vcode);
+		client->vcode = NULL;
+		return -1;
+	}
+	return do_login(client, err);
 }
 
 /*
@@ -241,20 +241,26 @@ static void xl_client_show_cookie_names(XLHttpRequest *request)
 	char **cookies;
 
 	nums = xl_http_request_get_cookie_names(request, &cookies);
+	if (nums == 0)
+		return;
     for (i=0 ; i < nums; i++)
     {
         if (cookies[i] != NULL){
-            printf("[COOKIE]%s\n", cookies[i]);
+            printf("[COOKIE_%d]%s\n", i, cookies[i]);
         }
     }
-    for (i=0 ; i < nums; i++)
-    {
-        if (cookies[i] != NULL){
-            s_free(cookies[i]);
-            cookies[i] = NULL;
-        }
+
+	if (cookies)
+	{
+		for (i=0 ; i < nums; i++)
+		{
+			if (cookies[i]){
+				s_free(cookies[i]);
+				cookies[i] = NULL;
+			}
+		}
+		s_free(cookies);
 	}
-	s_free(cookies);
 }
 
 /*
@@ -271,16 +277,19 @@ static XLHttpRequest *xl_client_open_url(XLClient *client, const char *url, Http
 	if (!req) {
 		goto failed;
 	}
+    xl_log(LOG_NOTICE, "URL=%s\n", url);
     cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
-		printf("Set-Cookie=%s\n", cookies);
+		xl_log(LOG_NOTICE, "Set-Cookie=%s\n", cookies);
 		xl_http_request_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
 	ret = xl_http_request_open(req, method, post_data);
 	if (ret != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
+	xl_client_show_cookie_names(req);
 	return req;
 failed:
 	xl_http_request_free(req);
@@ -315,7 +324,7 @@ static long get_current_timestamp(void)
     v = tv.tv_usec;
     v = (v - v % 1000) / 1000;
     v = tv.tv_sec * 1000 + v;
-    xl_log(LOG_NOTICE, "current timestamp=%ld\n", v);
+    //xl_log(LOG_NOTICE, "current timestamp=%ld\n", v);
 	return v;
 }
 
@@ -324,25 +333,9 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 	XLHttpRequest *req;
 	char url[512];
 
-	char *cookies;
-	int ret;
-
 	snprintf(url, sizeof(url), "http://login.xunlei.com/check?u=%s&cachetime=%ld", client->username, get_current_timestamp());
-	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
-	req = xl_http_request_create_default(url, err);
-	if (!req) {
-		goto failed;
-	}
-
-    cookies = xl_cookies_get_string_line(client->cookies);
-    if (cookies != NULL) {
-		printf("Set-Cookie=%s\n", cookies);
-		xl_http_request_set_header(req, "Cookie", cookies);
-        s_free(cookies);
-    }
-	ret = xl_http_request_open(req, HTTP_GET, NULL);
-	if (ret != 0) {
-		*err = XL_ERROR_NETWORK_ERROR;
+	req = xl_client_open_url(client, url, HTTP_GET, NULL, err);
+	if (req == NULL){
 		goto failed;
 	}
 
@@ -370,34 +363,16 @@ static void get_verify_image(XLClient *client)
 {
 	XLHttpRequest *req;
 	char url[512];
-
-	char *cookies;
-	int ret;
 	XLErrorCode err;
 
 	snprintf(url, sizeof(url), "http://verify2.xunlei.com/image?cachetime=%ld", get_current_timestamp());
-	xl_log(LOG_NOTICE, "Request URL=%s\n", url);
-	req = xl_http_request_create_default(url, &err);
-	if (!req) {
+	req = xl_client_open_url(client, url, HTTP_GET, NULL, &err);
+	if (req == NULL){
 		goto failed;
 	}
-
-    cookies = xl_cookies_get_string_line(client->cookies);
-    if (cookies != NULL) {
-		printf("Set-Cookie=%s\n", cookies);
-		xl_http_request_set_header(req, "Cookie", cookies);
-        s_free(cookies);
-    }
-	ret = xl_http_request_open(req, HTTP_GET, NULL);
-	if (ret != 0) {
+	if (xl_http_request_get_status(req) != 200) {
 		goto failed;
 	}
-
-	if (xl_http_request_get_status(req) != 200)
-	{
-		goto failed;
-	}
-
 	xl_cookies_receive(client->cookies, req, 1);
 
     int image_length = 0;
@@ -414,6 +389,7 @@ static void get_verify_image(XLClient *client)
 		unlink(client->vimgpath);
 		int fd = creat(client->vimgpath, S_IRUSR | S_IWUSR);
 		if (fd != -1) {
+			int ret;
 			ret = write(fd, xl_http_request_get_response(req), image_length);
 			if (ret <= 0) {
 				xl_log(LOG_ERROR, "Saving verify image file error\n");

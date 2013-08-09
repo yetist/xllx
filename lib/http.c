@@ -112,14 +112,14 @@ XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
 
 	req = xl_http_request_new(url);
 	if (!req) {
-		xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
+		//xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
 		if (err)
 			*err = XL_ERROR_ERROR;
 		return NULL;
 	}
 
 	xl_http_request_set_default_header(req);
-	xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
+	//xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
 	return req;
 }
 
@@ -329,11 +329,15 @@ int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
     int i, nums;
 	char **cookies;
 	int found = -1;
+	char keyname[256];
 
-	nums = xl_http_request_get_cookie_names(request->req, &cookies);
+	snprintf(keyname, sizeof(keyname), "%s=", key);
+	nums = xl_http_request_get_cookie_names(request, &cookies);
+	if (nums == 0)
+		return found;
     for (i=0 ; i < nums; i++)
     {
-        if (cookies[i] != NULL && strcmp(cookies[i], key) == 0){
+        if (cookies[i] != NULL && strncmp(cookies[i], keyname, strlen(keyname)) == 0){
 			found = 0;
 			break;
         }

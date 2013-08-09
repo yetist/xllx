@@ -50,7 +50,7 @@ void test_http(const char *uri)
 void test_client(const char* username, const char* password)
 {
     XLClient *client;
-    XLErrorCode err;
+    XLErrorCode err = 0;
 	char buf[4];
 	int ret;
 
