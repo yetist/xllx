@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4 wrap ai: */
 /*
  * http_hdrs.c -- This file contains declarations for http headers
  * Created: Christopher Blizzard <blizzard@appliedtheory.com>, 3-Aug-1998
@@ -335,72 +336,66 @@ ec:
 
 int http_hdr_get_cookie_names(http_hdr_list *a_list, char ***a_cookies, int *a_num_cookies)
 {
-    int i = 0;
-    int l_num_cookies = 0;
-    char **l_cookies;
+	int i = 0;
+	int l_num_cookies = 0;
+	char **l_cookies;
 
-    if (a_num_cookies == NULL)
-        return -1;
-    if (a_cookies == NULL)
-        return -1;
-    *a_cookies = NULL;
-    *a_num_cookies = 0;
+	if (a_num_cookies == NULL)
+		return -1;
+	if (a_cookies == NULL)
+		return -1;
+	*a_cookies = NULL;
+	*a_num_cookies = 0;
 
-    for (i=0; i < HTTP_HDRS_MAX; i++) {
-        if (a_list->header[i] == NULL ||
-            a_list->value[i] == NULL||
-            strcasecmp(a_list->header[i], "Set-Cookie")) {
-            continue;
-        }
-        l_num_cookies++;
-    }
-    /* return if there are no headers */
-    if (l_num_cookies == 0)
-        return 0;
-  /* now that we know how many headers we have allocate the number of
-     slots in the return */
-    l_cookies = malloc(sizeof(char *) * l_num_cookies);
-    if (l_cookies == NULL)
-        return -1;
-    /* zero the list so that we can clean up later if we have to */
-    memset(l_cookies, 0, l_num_cookies);
-  /* copy the cookies */
-    int j=0;
-    for (i=0; i < HTTP_HDRS_MAX; i++) {
-        if (a_list->header[i] == NULL ||
-            a_list->value[i] == NULL||
-            strcasecmp(a_list->header[i], "Set-Cookie")) {
-            continue;
-        }
-        l_cookies[j] = strdup(a_list->value[i]);
-        if (l_cookies[j] == NULL)
-            goto ec;
-        char *end;
-        end = strstr(l_cookies[j], ";");
-        if (end) {
-            *end = '\0';
-        }
-        j++;
-    }
-  *a_cookies = l_cookies;
-  *a_num_cookies = l_num_cookies;
-  return 0;
+	for (i=0; i < HTTP_HDRS_MAX; i++) {
+		if (a_list->header[i] != NULL && a_list->value[i] != NULL && strcasecmp(a_list->header[i], "Set-Cookie") == 0) {
+			l_num_cookies++;
+		}
+	}
+	/* return if there are no headers */
+	if (l_num_cookies == 0)
+		return 0;
+	/* now that we know how many headers we have allocate the number of
+	   slots in the return */
+	l_cookies = malloc(sizeof(char *) * l_num_cookies);
+	if (l_cookies == NULL)
+		return -1;
+	/* zero the list so that we can clean up later if we have to */
+	memset(l_cookies, 0, l_num_cookies);
+	/* copy the cookies */
+	int j=0;
+	for (i=0; i < HTTP_HDRS_MAX; i++) {
+		if (a_list->header[i] != NULL && a_list->value[i] != NULL && strcasecmp(a_list->header[i], "Set-Cookie") == 0) {
+			l_cookies[j] = strdup(a_list->value[i]);
+			if (l_cookies[j] == NULL)
+				goto ec;
+			char *end;
+			end = strstr(l_cookies[j], ";");
+			if (end) {
+				*end = '\0';
+			}
+			j++;
+		}
+	}
+	*a_cookies = l_cookies;
+	*a_num_cookies = l_num_cookies;
+	return 0;
 ec:
-  if (l_cookies)
-  {
-      for (i=0; i < l_num_cookies; i++)
-      {
-          if (l_cookies[i])
-          {
-              free(l_cookies[i]);
-              l_cookies[i] = NULL;
-          }
-      }
-      free(l_cookies);
-      *a_cookies = 0;
-  }
-  *a_num_cookies = 0;
-  return -1;
+	if (l_cookies)
+	{
+		for (i=0; i < l_num_cookies; i++)
+		{
+			if (l_cookies[i])
+			{
+				free(l_cookies[i]);
+				l_cookies[i] = NULL;
+			}
+		}
+		free(l_cookies);
+		*a_cookies = 0;
+	}
+	*a_num_cookies = 0;
+	return -1;
 }
 
 char *http_hdr_get_cookie(http_hdr_list *a_list, const char *a_name)

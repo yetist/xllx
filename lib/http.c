@@ -112,14 +112,14 @@ XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
 
 	req = xl_http_request_new(url);
 	if (!req) {
-		xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
+		//xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
 		if (err)
 			*err = XL_ERROR_ERROR;
 		return NULL;
 	}
 
 	xl_http_request_set_default_header(req);
-	xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
+	//xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
 	return req;
 }
 
@@ -321,20 +321,38 @@ int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
         return 0;
     }
     *names = cookies;
-    /* just for print */
-    int i;
+    return nums;
+}
+
+int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
+{
+    int i, nums;
+	char **cookies;
+	int found = -1;
+	char keyname[256];
+
+	snprintf(keyname, sizeof(keyname), "%s=", key);
+	nums = xl_http_request_get_cookie_names(request, &cookies);
+	if (nums == 0)
+		return found;
     for (i=0 ; i < nums; i++)
     {
-        if (cookies[i]){
-            printf("[COOKIE]%s\n", cookies[i]);
-            //s_free(cookies[i]);
-            //cookies[i] = NULL;
+        if (cookies[i] != NULL && strncmp(cookies[i], keyname, strlen(keyname)) == 0){
+			found = 0;
+			break;
         }
     }
-    //s_free(cookies);
-    //*names = 0;
-    /* end for print */
-    return nums;
+
+    for (i=0 ; i < nums; i++)
+    {
+        if (cookies[i] != NULL){
+            s_free(cookies[i]);
+            cookies[i] = NULL;
+        }
+	}
+	s_free(cookies);
+
+	return found;
 }
 
 char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)

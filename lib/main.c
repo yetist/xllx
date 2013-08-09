@@ -50,7 +50,7 @@ void test_http(const char *uri)
 void test_client(const char* username, const char* password)
 {
     XLClient *client;
-    XLErrorCode err;
+    XLErrorCode err = 0;
 	char buf[4];
 	int ret;
 
@@ -74,7 +74,11 @@ void test_client(const char* username, const char* password)
 		err = XL_ERROR_OK;
 		ret = xl_client_login(client, &err);
 	}
-    printf("ret=%d\n", err);
+	if (ret != 0)
+	{
+		printf("login failed! return code = %d\n", err);
+		return;
+	}
 	//xl_read_all_complete_tasks(client);
 	xl_add_yun_task(client, NULL);
 	xl_get_yun_url(client, "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=", "[阳光电影www.ygdy8.com].叶问：终极一战.BD.720p.国粤双语中字.mkv");

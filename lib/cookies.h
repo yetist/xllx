@@ -31,13 +31,16 @@ char* xl_cookies_get_##a(XLCookies *cookies)
 #define _set_cookie_func(a) \
 void xl_cookies_set_##a(XLCookies *cookies, const char* a)
 
+#define _clear_cookie_func(a) \
+void  xl_cookies_clear_##a(XLCookies *cookies)
+
 typedef struct _XLCookies XLCookies;
 
 XLCookies* xl_cookies_new(void);
-void  xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache);
-void  xl_cookies_update_string_line(XLCookies *cookies);
-void  xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
-void  xl_cookies_free(XLCookies *cookies);
+void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache);
+void xl_cookies_update_string_line(XLCookies *cookies);
+void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update);
+void xl_cookies_free(XLCookies *cookies);
 
 _get_cookie_func(string_line);
 _get_cookie_func(userid);
@@ -48,5 +51,10 @@ _get_cookie_func(sessionid);
 _set_cookie_func(pagenum);
 _set_cookie_func(gdriveid);
 _set_cookie_func(lx_nf_all);
+
+_clear_cookie_func(sessionid);
+_clear_cookie_func(lsessionid);
+_clear_cookie_func(lx_sessionid);
+_clear_cookie_func(lx_login);
 
 #endif /* __COOKIES_H__ */

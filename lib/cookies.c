@@ -26,9 +26,11 @@
 #include "logger.h"
 
 struct _XLCookies {
-	/* received cookie */
-	char *verify_key;
+	/* received from http://login.xunlei.com/check?u=USERNAME&cachetime=NOW */
 	char *check_result;
+	/* received from http://login.xunlei.com/check?u=USERNAME&cachetime=NOW or get image url */
+	char *_verify_key;	/* key: VERIFY_KEY */
+	/* received from http://login.xunlei.com/sec2login/ */
 	char *active;
 	char *blogresult;
 	char *downbyte;
@@ -46,14 +48,35 @@ struct _XLCookies {
 	char *sex;
 	char *upgrade;
 	char *userid;
+	char *usernewno;
+	char *usernick;
+	char *usertype;
+	char *usrname;
+
+	/* received from http://dynamic.cloud.vip.xunlei.com/login?cachetime=NOW&from=0 */
 	char *in_xl;
+	char *lx_sessionid;
+	char *dl_enable;
+	char *_isnewer;		/* key: isnewer_${userid}, like isnewer_288543553; */
+	char *lx_login;
+	char *vip_expiredate;
+	char *user_type;
+	char *vip_level;
+	char *vip_paytype;
+	char *vip_isvip;
+	char *_initbg_pop;	/* key: initbg_pop${userid}; like initbg_pop288543553; */
+	char *last_userid;
+	char *vip_is_good_number;
+	char *loadding_img;
+
 	/* client setup cookie */
 	char *pagenum;
+	char *lx_nf_all;
+	char *lsessionid; 
+	char *gdriveid;
+
 	/* cookie string for http request */
 	char *string_line;
-	char *lx_nf_all;
-	char *lx_login; 
-	char *gdriveid;
 };
 
 #define free_and_strdup(a,b) \
@@ -86,10 +109,10 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
     if (value == NULL)
         return ;
     
-    if (!strcmp(key, "VERIFY_KEY")) {
-        free_and_strdup(cookies->verify_key, value);
-    } else if (!strcmp(key, "check_result")) {
+    if (!strcmp(key, "check_result")) {
         free_and_strdup(cookies->check_result, value);
+    } else if (!strcmp(key, "VERIFY_KEY")) {
+        free_and_strdup(cookies->_verify_key, value);
     } else if (!strcmp(key, "active")) {
         free_and_strdup(cookies->active, value);
     } else if (!strcmp(key, "blogresult")) {
@@ -124,10 +147,42 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
         free_and_strdup(cookies->upgrade, value);
     } else if (!strcmp(key, "userid")) {
         free_and_strdup(cookies->userid, value);
+    } else if (!strcmp(key, "usernewno")) {
+        free_and_strdup(cookies->usernewno, value);
+    } else if (!strcmp(key, "usernick")) {
+        free_and_strdup(cookies->usernick, value);
+    } else if (!strcmp(key, "usertype")) {
+        free_and_strdup(cookies->usertype, value);
+    } else if (!strcmp(key, "usrname")) {
+        free_and_strdup(cookies->usrname, value);
+
     } else if (!strcmp(key, "in_xl")) {
         free_and_strdup(cookies->in_xl, value);
+    } else if (!strcmp(key, "lx_sessionid")) {
+        free_and_strdup(cookies->lx_sessionid, value);
+
+    } else if (!strcmp(key, "dl_enable")) {
+        free_and_strdup(cookies->dl_enable, value);
+    } else if (!strncmp(key, "isnewer_", 8)) {
+        free_and_strdup(cookies->_isnewer, value);
     } else if (!strcmp(key, "lx_login")) {
         free_and_strdup(cookies->lx_login, value);
+    } else if (!strcmp(key, "vip_expiredate")) {
+        free_and_strdup(cookies->vip_expiredate, value);
+    } else if (!strcmp(key, "user_type")) {
+        free_and_strdup(cookies->user_type, value);
+    } else if (!strcmp(key, "vip_level")) {
+        free_and_strdup(cookies->vip_level, value);
+    } else if (!strcmp(key, "vip_paytype")) {
+        free_and_strdup(cookies->vip_paytype, value);
+    } else if (!strncmp(key, "initbg_pop", 10)) {
+        free_and_strdup(cookies->_initbg_pop, value);
+    } else if (!strcmp(key, "last_userid")) {
+        free_and_strdup(cookies->last_userid, value);
+    } else if (!strcmp(key, "vip_is_good_number")) {
+        free_and_strdup(cookies->vip_is_good_number, value);
+    } else if (!strcmp(key, "loadding_img")) {
+        free_and_strdup(cookies->loadding_img, value);
     } else {
         xl_log(LOG_WARNING, "No this cookie: %s\n", key);
     }
@@ -142,12 +197,12 @@ void xl_cookies_update_string_line(XLCookies *cookies)
 {
 	char buf[4096] = {0};           /* 4K is enough for cookies. */
 	int buflen = 0;
-	if (cookies->verify_key) {
-		snprintf(buf, sizeof(buf), "VERIFY_KEY=%s; ", cookies->verify_key);
+	if (cookies->check_result) {
+		snprintf(buf, sizeof(buf), "check_result=%s; ", cookies->check_result);
 		buflen = strlen(buf);
 	}
-	if (cookies->check_result) {
-		snprintf(buf + buflen, sizeof(buf) - buflen, "check_result=%s; ", cookies->check_result);
+	if (cookies->_verify_key) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "VERIFY_KEY=%s; ", cookies->_verify_key);
 		buflen = strlen(buf);
 	}
 	if (cookies->active) {
@@ -218,25 +273,106 @@ void xl_cookies_update_string_line(XLCookies *cookies)
 		snprintf(buf + buflen, sizeof(buf) - buflen, "userid=%s; ", cookies->userid);
 		buflen = strlen(buf);
 	}
+	if (cookies->usernewno) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "usernewno=%s; ", cookies->usernewno);
+		buflen = strlen(buf);
+	}
+	if (cookies->usernick) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "usernick=%s; ", cookies->usernick);
+		buflen = strlen(buf);
+	}
+	if (cookies->usertype) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "usertype=%s; ", cookies->usertype);
+		buflen = strlen(buf);
+	}
+	if (cookies->usrname) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "usrname=%s; ", cookies->usrname);
+		buflen = strlen(buf);
+	}
+
 	if (cookies->in_xl) {
 		snprintf(buf + buflen, sizeof(buf) - buflen, "in_xl=%s; ", cookies->in_xl);
+		buflen = strlen(buf);
+	}
+	if (cookies->lx_sessionid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_sessionid=%s; ", cookies->lx_sessionid);
+		buflen = strlen(buf);
+	}
+	if (cookies->dl_enable) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "dl_enable=%s; ", cookies->dl_enable);
+		buflen = strlen(buf);
+	}
+	if (cookies->_isnewer) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "isnewer_%s=%s; ", cookies->userid, cookies->_isnewer);
 		buflen = strlen(buf);
 	}
 	if (cookies->lx_login) {
 		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_login=%s; ", cookies->lx_login);
 		buflen = strlen(buf);
 	}
+	if (cookies->vip_expiredate) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "vip_expiredate=%s; ", cookies->vip_expiredate);
+		buflen = strlen(buf);
+	}
+	if (cookies->user_type) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "user_type=%s; ", cookies->user_type);
+		buflen = strlen(buf);
+	}
+	if (cookies->vip_level) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "vip_level=%s; ", cookies->vip_level);
+		buflen = strlen(buf);
+	}
+	if (cookies->vip_paytype) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "vip_paytype=%s; ", cookies->vip_paytype);
+		buflen = strlen(buf);
+	}
+	if (cookies->vip_isvip) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "vip_isvip=%s; ", cookies->vip_isvip);
+		buflen = strlen(buf);
+	}
+	if (cookies->_initbg_pop) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "initbg_pop%s=%s; ", cookies->userid, cookies->_initbg_pop);
+		buflen = strlen(buf);
+	}
+	if (cookies->last_userid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "last_userid=%s; ", cookies->last_userid);
+		buflen = strlen(buf);
+	}
+	if (cookies->vip_is_good_number) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "vip_is_good_number=%s; ", cookies->vip_is_good_number);
+		buflen = strlen(buf);
+	}
+	if (cookies->loadding_img) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "loadding_img=%s; ", cookies->loadding_img);
+		buflen = strlen(buf);
+	}
+
 	if (cookies->pagenum) {
 		snprintf(buf + buflen, sizeof(buf) - buflen, "pagenum=%s; ", cookies->pagenum);
 		buflen = strlen(buf);
 	}
+	if (cookies->lx_nf_all) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lx_nf_all=%s; ", cookies->lx_nf_all);
+		buflen = strlen(buf);
+	}
+	if (cookies->lsessionid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "lsessionid=%s; ", cookies->lsessionid);
+		buflen = strlen(buf);
+	}
+	if (cookies->gdriveid) {
+		snprintf(buf + buflen, sizeof(buf) - buflen, "gdriveid=%s; ", cookies->gdriveid);
+		buflen = strlen(buf);
+	}
+
 	free_and_strdup(cookies->string_line, buf);
 }
 
 void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
 {
-	xl_cookies_update(cookies, req, "VERIFY_KEY", update);
+	char buf[256];
+
 	xl_cookies_update(cookies, req, "check_result", update);
+	xl_cookies_update(cookies, req, "VERIFY_KEY", update);
 	xl_cookies_update(cookies, req, "active", update);
 	xl_cookies_update(cookies, req, "blogresult", update);
 	xl_cookies_update(cookies, req, "downbyte", update);
@@ -254,15 +390,38 @@ void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
 	xl_cookies_update(cookies, req, "sex", update);
 	xl_cookies_update(cookies, req, "upgrade", update);
 	xl_cookies_update(cookies, req, "userid", update);
+	xl_cookies_update(cookies, req, "usernewno", update);
+	xl_cookies_update(cookies, req, "usernick", update);
+	xl_cookies_update(cookies, req, "usertype", update);
+	xl_cookies_update(cookies, req, "usrname", update);
+
 	xl_cookies_update(cookies, req, "in_xl", update);
+	xl_cookies_update(cookies, req, "lx_sessionid", update);
+	xl_cookies_update(cookies, req, "dl_enable", update);
+	if (cookies->userid) {
+		snprintf(buf, sizeof(buf), "isnewer_%s", cookies->userid);
+		xl_cookies_update(cookies, req, buf, update);
+	}
 	xl_cookies_update(cookies, req, "lx_login", update);
+	xl_cookies_update(cookies, req, "vip_expiredate", update);
+	xl_cookies_update(cookies, req, "user_type", update);
+	xl_cookies_update(cookies, req, "vip_level", update);
+	xl_cookies_update(cookies, req, "vip_paytype", update);
+	xl_cookies_update(cookies, req, "vip_isvip", update);
+	if (cookies->userid) {
+		snprintf(buf, sizeof(buf), "initbg_pop%s", cookies->userid);
+		xl_cookies_update(cookies, req, buf, update);
+	}
+	xl_cookies_update(cookies, req, "last_userid", update);
+	xl_cookies_update(cookies, req, "vip_is_good_number", update);
+	xl_cookies_update(cookies, req, "loadding_img", update);
 }
 
 void xl_cookies_free(XLCookies *cookies)
 {
 	if (cookies != NULL) {
-		s_free(cookies->verify_key);
 		s_free(cookies->check_result);
+		s_free(cookies->_verify_key);
 		s_free(cookies->active);
 		s_free(cookies->blogresult);
 		s_free(cookies->downbyte);
@@ -280,11 +439,32 @@ void xl_cookies_free(XLCookies *cookies)
 		s_free(cookies->sex);
 		s_free(cookies->upgrade);
 		s_free(cookies->userid);
+		s_free(cookies->usernewno);
+		s_free(cookies->usernick);
+		s_free(cookies->usertype);
+		s_free(cookies->usrname);
+
 		s_free(cookies->in_xl);
+		s_free(cookies->lx_sessionid);
+		s_free(cookies->dl_enable);
+		s_free(cookies->_isnewer);		/* key: isnewer_${userid}, like isnewer_288543553; */
 		s_free(cookies->lx_login);
-		s_free(cookies->lx_nf_all);
+		s_free(cookies->vip_expiredate);
+		s_free(cookies->user_type);
+		s_free(cookies->vip_level);
+		s_free(cookies->vip_paytype);
+		s_free(cookies->vip_isvip);
+		s_free(cookies->_initbg_pop);	/* key: initbg_pop${userid}; like initbg_pop288543553; */
+		s_free(cookies->last_userid);
+		s_free(cookies->vip_is_good_number);
+		s_free(cookies->loadding_img);
+
 		s_free(cookies->pagenum);
+		s_free(cookies->lx_nf_all);
+		s_free(cookies->lsessionid); 
+		s_free(cookies->gdriveid);
 		s_free(cookies->string_line);
+
 		s_free(cookies);
 	}
 }
@@ -317,3 +497,17 @@ void xl_cookies_set_##a(XLCookies *cookies, const char* a) \
 set_cookie_func(pagenum);
 set_cookie_func(gdriveid);
 set_cookie_func(lx_nf_all);
+
+#define clear_cookie_func(a) \
+void  xl_cookies_clear_##a(XLCookies *cookies) \
+{ \
+	if (cookies != NULL && cookies->a != NULL) \
+		s_free(cookies->a); \
+	cookies->a = NULL; \
+	xl_cookies_update_string_line(cookies); \
+}
+
+clear_cookie_func(sessionid);
+clear_cookie_func(lsessionid);
+clear_cookie_func(lx_sessionid);
+clear_cookie_func(lx_login);
