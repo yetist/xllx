@@ -235,6 +235,7 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 //			self.set_cookie('.xunlei.com', k, '')
 //		self.save_cookies()
 //}
+
 static void xl_client_show_cookie_names(XLHttpRequest *request)
 {
     int i, nums;
@@ -289,6 +290,7 @@ static XLHttpRequest *xl_client_open_url(XLClient *client, const char *url, Http
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
+	printf("[----html----\n%s\n----html----]\n", xl_http_request_get_response(req));
 	xl_client_show_cookie_names(req);
 	return req;
 failed:
@@ -324,7 +326,6 @@ static long get_current_timestamp(void)
     v = tv.tv_usec;
     v = (v - v % 1000) / 1000;
     v = tv.tv_sec * 1000 + v;
-    //xl_log(LOG_NOTICE, "current timestamp=%ld\n", v);
 	return v;
 }
 

@@ -49,20 +49,20 @@ void test_http(const char *uri)
 
 void test_client(const char* username, const char* password)
 {
-    XLClient *client;
-    XLErrorCode err = 0;
+	XLClient *client;
+	XLErrorCode err = 0;
 	char buf[4];
 	int ret;
 
-    client = xl_client_new(username, password);
+	client = xl_client_new(username, password);
 	xl_client_set_verify_image_path(client, "/tmp/vcode.jpg");
-    ret = xl_client_login(client, &err);
+	ret = xl_client_login(client, &err);
 	int try = 0;
 	printf("error = %d\n", err);
 	while (ret != 0 && try < 3)
 	{
 		try++;
-		if (err == XL_ERROR_HTTP_ERROR)
+		if (err == XL_ERROR_HTTP_ERROR || err == XL_ERROR_NETWORK_ERROR)
 			printf("ERROR: http error\n");
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 
 	char *username = argv[1];
 	char *password = argv[2];
-    //test_http("http://www.baidu.com");
-    test_client(username, password);
+	//test_http("http://www.baidu.com");
+	test_client(username, password);
 	return 0;
 }

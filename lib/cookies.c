@@ -175,6 +175,8 @@ void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, 
         free_and_strdup(cookies->vip_level, value);
     } else if (!strcmp(key, "vip_paytype")) {
         free_and_strdup(cookies->vip_paytype, value);
+    } else if (!strcmp(key, "vip_isvip")) {
+        free_and_strdup(cookies->vip_isvip, value);
     } else if (!strncmp(key, "initbg_pop", 10)) {
         free_and_strdup(cookies->_initbg_pop, value);
     } else if (!strcmp(key, "last_userid")) {
