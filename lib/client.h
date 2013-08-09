@@ -38,6 +38,7 @@ void xl_read_all_complete_tasks(XLClient *client);
 char *lwqq_get_cookies(XLClient *lc);
 
 int xl_add_yun_task(XLClient *client, char *url);
+char *xl_get_yun_url(XLClient *client, char *vurl, char *vname);
 
 //void lwqq_vc_free(LwqqVerifyCode *vc);
 
