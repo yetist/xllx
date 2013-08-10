@@ -15,7 +15,7 @@ m4_define([xllx_lt_revision], [xllx_interface_age])
 m4_define([xllx_lt_age], [m4_eval(xllx_binary_age - xllx_interface_age)])
 
 AC_INIT([xllx], [xllx_version], [http://bugs.htpcos.org])
-AC_CONFIG_SRCDIR([lib/http.c])
+AC_CONFIG_SRCDIR([lib/xl-client.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
