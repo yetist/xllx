@@ -21,29 +21,29 @@
  * */
 #include <stdio.h>
 
-#include "http.h"
+#include "xl-http.h"
 #include "smemory.h"
 #include "logger.h"
-#include "client.h"
+#include "xl-client.h"
 
 void test_http(const char *uri)
 {
-	XLHttpRequest *req = xl_http_request_new(uri);
+	XLHttp *req = xl_http_new(uri);
 	if (req) {
 		int ret = 0;
-		ret = xl_http_request_open(req, 0, NULL);
+		ret = xl_http_open(req, 0, NULL);
 		if (ret == 0) {
-			xl_log(LOG_NOTICE, "Http response code: %d\n", xl_http_request_get_status(req));
-			xl_log(LOG_NOTICE, "Http response buf: %s\n", xl_http_request_get_response(req));
-			xl_log(LOG_NOTICE, "Http [cookie]BDSVRTM: %s\n", xl_http_request_get_cookie(req, "BDSVRTM"));
-			xl_log(LOG_NOTICE, "Http [cookie]H_PS_PSSID: %s\n", xl_http_request_get_cookie(req, "H_PS_PSSID"));
-			xl_log(LOG_NOTICE, "Http [header]BDQID: %s\n", xl_http_request_get_header(req, "BDQID"));
-			if (xl_http_request_get_status(req) == 302)
+			xl_log(LOG_NOTICE, "Http response code: %d\n", xl_http_get_status(req));
+			xl_log(LOG_NOTICE, "Http response buf: %s\n", xl_http_get_response(req));
+			xl_log(LOG_NOTICE, "Http [cookie]BDSVRTM: %s\n", xl_http_get_cookie(req, "BDSVRTM"));
+			xl_log(LOG_NOTICE, "Http [cookie]H_PS_PSSID: %s\n", xl_http_get_cookie(req, "H_PS_PSSID"));
+			xl_log(LOG_NOTICE, "Http [header]BDQID: %s\n", xl_http_get_header(req, "BDQID"));
+			if (xl_http_get_status(req) == 302)
 			{
-				xl_log(LOG_NOTICE, "Http [header]Location: %s\n", xl_http_request_get_header(req, "Location"));
+				xl_log(LOG_NOTICE, "Http [header]Location: %s\n", xl_http_get_header(req, "Location"));
 			}
 		}
-		xl_http_request_free(req);
+		xl_http_free(req);
 	}
 }
 

@@ -13,10 +13,10 @@ DIST_SUBDIRS = libghttp
 lib_LTLIBRARIES = libxllx.la
 
 libxllx_la_SOURCES = 	\
-	http.c 	\
+	xl-http.c 	\
 	smemory.c 	\
-	client.c 	\
-	cookies.c 	\
+	xl-client.c 	\
+	xl-cookies.c 	\
 	md5.c 	\
 	url.c 	\
 	parse.c 	\
