@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4 wrap ai: */
 /*
- * converturl.c: This file is part of ____
+ * xl-url.c: This file is part of ____
  *
  * Copyright (C) 2013 yetist <xiaotian.wu@i-soft.com.cn>
  *
@@ -20,13 +20,83 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
+#include <ctype.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "base64.h"
 
-char* thunder_url_encode(const char* uri)
+/* Converts a hex character to its integer value */
+static char from_hex(char ch)
+{
+  return isdigit(ch) ? ch - '0' : tolower(ch) - 'A' + 10;
+}
+
+/* Converts an integer value to its hex character*/
+static char to_hex(char code)
+{
+  static char hex[] = "0123456789ABCDEF";
+  return hex[code & 15];
+}
+
+/**
+ * xl_url_quote:
+ * @str: The text of the raw url 
+ *
+ * Creates a new quoted url with the given str. You should
+ * free it.
+ *
+ * Return value: the url-encoded version of str
+ **/
+char* xl_url_quote(char *str)
+{
+    if (!str)
+        return NULL;
+    
+    char *pstr = str, *buf = malloc(strlen(str) * 3 + 1), *pbuf = buf;
+    while (*pstr) {
+        if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~') 
+            *pbuf++ = *pstr;
+        else 
+            *pbuf++ = '%', *pbuf++ = to_hex(*pstr >> 4), *pbuf++ = to_hex(*pstr & 15);
+        pstr++;
+    }
+    *pbuf = '\0';
+    return buf;
+}
+
+/** 
+ * NB: be sure to free() the returned string after use
+ * 
+ * @param str 
+ * 
+ * @return A url-decoded version of str
+ */
+char* xl_url_unquote(char *str)
+{
+    if (!str) {
+        return NULL;
+    }
+    char *pstr = str, *buf = malloc(strlen(str) + 1), *pbuf = buf;
+    while (*pstr) {
+        if (*pstr == '%') {
+            if (pstr[1] && pstr[2]) {
+                *pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
+                pstr += 2;
+            }
+        } else if (*pstr == '+') { 
+            *pbuf++ = ' ';
+        } else {
+            *pbuf++ = *pstr;
+        }
+        pstr++;
+    }
+    *pbuf = '\0';
+    return buf;
+}
+
+char* xl_url_thunder_encode(const char* uri)
 {
     char p[256]={0}, *b64, *url;
     size_t l, len;
@@ -43,7 +113,7 @@ char* thunder_url_encode(const char* uri)
     return url;
 }
 
-char* thunder_url_decode(const char* euri)
+char* xl_url_thunder_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -64,7 +134,7 @@ char* thunder_url_decode(const char* euri)
     return url;
 }
 
-char* qq_url_encode(const char* uri)
+char* xl_url_qqdl_encode(const char* uri)
 {
 	char *b64, *url;
     size_t l, len;
@@ -79,7 +149,7 @@ char* qq_url_encode(const char* uri)
     return url;
 }
 
-char* qq_url_decode(const char* euri)
+char* xl_url_qqdl_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -95,7 +165,7 @@ char* qq_url_decode(const char* euri)
     return url;
 }
 
-char* flash_url_encode(const char* uri)
+char* xl_url_flashget_encode(const char* uri)
 {
 	char u[256] = {0};
 	char *b64, *url = NULL;
@@ -115,7 +185,7 @@ char* flash_url_encode(const char* uri)
     return url;
 }
 
-char* flash_url_decode(const char* euri)
+char* xl_url_flashget_decode(const char* euri)
 {
     char u[256] = {0};
     char *p, *url;
@@ -137,36 +207,30 @@ char* flash_url_decode(const char* euri)
 /*
  * you should free return value.
  */
-char* url_decode(const char* euri)
+char* xl_url_decode(const char* euri)
 {
     char *url;
 
     if (strncmp(euri, "thunder://", 10) == 0) {
-		url = thunder_url_decode(euri);
+		url = xl_url_thunder_decode(euri);
 	}else if (strncmp(euri, "qqdl://", 7) == 0) {
-		url = qq_url_decode(euri);
+		url = xl_url_qqdl_decode(euri);
 	}else if (strncmp(euri, "Flashget://", 11) == 0) {
-		url = flash_url_decode(euri);
+		url = xl_url_flashget_decode(euri);
     }else{
     	url = strdup(euri);
     }
     return url;
 }
 
-int main(int argc, char** argv)
+#if 0
+int main(int argc, char *argv[])
 {
-    char *p;
-	char *uri = "http://www.中国.com";
-	char *euri;
-    euri = thunder_url_encode(uri);
-    p = thunder_url_decode(euri);
-	if (strcmp(p, uri) == 0) {
-		printf("[OK], uri=%s, euri=%s\n", uri, euri);
-	}
-
-	euri = qq_url_encode(uri);
-	p = qq_url_decode(euri);
-	if (strcmp(p, uri) == 0) {
-		printf("[OK], uri=%s, euri=%s\n", uri, euri);
-	}
+    char *buf = url_encode("http://www.-go8ogle. com");
+    if (buf) {
+        lwqq_log(LOG_NOTICE, "Encode data: %s\n", buf);
+    } else 
+    puts(buf);
+    return 0;
 }
+#endif

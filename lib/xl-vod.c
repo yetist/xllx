@@ -41,6 +41,36 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
+#include "xl-vod.h"
+
+struct _XLVod
+{
+	XLClient *client;
+};
+
+XLVod* xl_vod_new(XLClient *client)
+{
+	if (!client)
+		return NULL;
+	}
+	XLVod *vod = s_malloc0(sizeof(*vod));
+	vod->client = client;
+	return vod;
+}
+
+void xl_vod_free(XLVod *vod)
+{
+	if (!vod)
+		return ;
+
+	xl_client_free(vod->client);
+	s_free(vod);
+}
+
+int xl_vod_has_video(XLVod *vod, const char* url)
+{
+}
+
 #if 0
 void xl_vod_get_userinfo()
 {

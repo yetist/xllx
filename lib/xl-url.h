@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4 wrap ai: */
 /*
- * converturl.h: This file is part of ____
+ * xl-url.h: This file is part of ____
  *
  * Copyright (C) 2013 yetist <xiaotian.wu@i-soft.com.cn>
  *
@@ -20,15 +20,17 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
-#ifndef __URLDECODE_H__ 
-#define __URLDECODE_H__  1
+#ifndef __XL_URL_H__ 
+#define __XL_URL_H__  1
 
-char* thunder_url_encode(const char* uri);
-char* thunder_url_decode(const char* euri);
-char* qq_url_encode(const char* uri);
-char* qq_url_decode(const char* euri);
-char* flashget_url_encode(const char* uri);
-char* flashget_url_decode(const char* euri);
-char* url_decode(const char* euri);
+char* xl_url_quote(char *str);
+char* xl_url_unquote(char *str);
+char* xl_url_thunder_encode(const char* uri);
+char* xl_url_thunder_decode(const char* euri);
+char* xl_url_qqdl_encode(const char* uri);
+char* xl_url_qqdl_decode(const char* euri);
+char* xl_url_flashget_encode(const char* uri);
+char* xl_url_flashget_decode(const char* euri);
+char* xl_url_decode(const char* euri);
 
-#endif /* __URLDECODE_H__ */
+#endif /* __XL_URL_H__ */

@@ -37,7 +37,7 @@
 #include "xl-http.h"
 #include "smemory.h"
 #include "logger.h"
-#include "url.h"
+#include "xl-url.h"
 #include "md5.h"
 #include "info.h"
 #include "xl-cookies.h"
@@ -96,7 +96,7 @@ static void create_post_data(XLClient *client, char *buf, int buflen)
 	encpwd =  encode_password(client->password, client->vcode);
     snprintf(m, sizeof(m), "u=%s&p=%s&verifycode=%s", client->username, encpwd, client->vcode);
 	s_free(encpwd);
-    s = url_encode(m);
+    s = xl_url_quote(m);
     snprintf(buf, buflen, "%s", m);
     s_free(s);
 }
@@ -684,7 +684,7 @@ static void create_get_name_post_data(char *url, char *buf, int buflen)
 	json_object_object_add(new_obj, "id", json_object_new_int(0));
 	if (url)
 	{
-		char *en_url = url_encode(url);
+		char *en_url = xl_url_quote(url);
 		json_object_object_add(new_obj, "url", json_object_new_string(en_url));
 		s_free(en_url);
 	}
@@ -708,10 +708,10 @@ static void create_add_yun_post_data(char *url, char *name, char *buf, int bufle
 	json_object_object_add(new_obj, "id", json_object_new_int(0));
 	if (url)
 	{
-		char *en_url = url_encode(url);
+		char *en_url = xl_url_quote(url);
 		json_object_object_add(new_obj, "url", json_object_new_string(en_url));
 		s_free(en_url);
-		char *en_name = url_encode(name);
+		char *en_name = xl_url_quote(name);
 		json_object_object_add(new_obj, "name", json_object_new_string(en_name));
 		s_free(en_name);
 	}
@@ -861,8 +861,8 @@ char *xl_get_yun_url(XLClient *client, char *vurl, char *vname)
 		printf("\nsessionid=%s\n", sessionid);
 	}
 
-	char *en_url = url_encode(vurl);
-	char *en_name = url_encode(vname);
+	char *en_url = xl_url_quote(vurl);
+	char *en_name = xl_url_quote(vname);
 
 	snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
 

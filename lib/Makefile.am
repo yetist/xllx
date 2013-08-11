@@ -14,12 +14,13 @@ lib_LTLIBRARIES = libxllx.la
 
 libxllx_la_SOURCES = 	\
 	xl-http.c 	\
-	smemory.c 	\
 	xl-client.c 	\
 	xl-cookies.c 	\
+	xl-url.c 	\
+	smemory.c 	\
 	md5.c 	\
-	url.c 	\
 	parse.c 	\
+	base64.c	\
 	logger.c 
 
 libxllx_la_CFLAGS =	\
