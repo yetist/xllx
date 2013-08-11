@@ -20,27 +20,25 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
-#include <sys/time.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <unistd.h>
 #include <ctype.h>
-#include <regex.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
 #include <json.h>
 
 #include "xllx.h"
+#include "xl-cookies.h"
 #include "xl-client.h"
 #include "xl-http.h"
+#include "xl-url.h"
+#include "xl-utils.h"
 #include "smemory.h"
 #include "logger.h"
-#include "xl-url.h"
 #include "md5.h"
 #include "info.h"
-#include "xl-cookies.h"
 
 #include "parse.h"
 
@@ -61,15 +59,11 @@ struct _XLYun
     YUNZHUANMAQuality q;
 };
 
-static long get_current_timestamp(void);
 static void get_verify_code(XLClient *client, XLErrorCode *err);
 static void get_verify_image(XLClient *client);
-static char *string_toupper(const char *str);
 static char* encode_password(const char* password, const char* vcode);
-static int re_match(const char* pattern, const char* str);
 static void xl_client_show_cookie_names(XLHttp *request);
 static XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
-//static char *parse_string(const char* pattern, const char* str);
 
 XLClient *xl_client_new(const char *username, const char *password)
 {
@@ -322,19 +316,6 @@ static char* encode_password(const char* password, const char* vcode)
 	return s_strdup(buf);
 }
 
-static long get_current_timestamp(void)
-{
-    struct timeval tv;
-    long v;
-
-    gettimeofday(&tv, NULL);
-    v = tv.tv_usec;
-    v = (v - v % 1000) / 1000;
-    v = tv.tv_sec * 1000 + v;
-    //xl_log(LOG_NOTICE, "current timestamp=%ld\n", v);
-	return v;
-}
-
 static void get_verify_code(XLClient *client, XLErrorCode *err)
 {
 	XLHttp *req;
@@ -441,47 +422,6 @@ void xl_client_free(XLClient *client)
 	xl_cookies_free(client->cookies);
 
 	s_free(client);
-}
-
-static char *string_toupper(const char *str)
-{
-	char *newstr, *p;
-	p = newstr = s_strdup(str);
-	while(*p) {
-		*p=toupper(*p);
-		p++;
-	}
-	return newstr;
-}
-
-/*
- * return value:
- * error: -1
- * no match: 1
- * matched: 0
- */
-
-static int re_match(const char* pattern, const char* str)
-{
-    regex_t re;            
-    int err;
-    err = regcomp(&re, pattern, REG_EXTENDED|REG_NOSUB);
-    if (err)
-    {
-        return -1;
-    }
-    err = regexec(&re, str, 0, NULL, 0);
-    if (err == REG_NOMATCH)
-    {
-         regfree(&re);
-         return 1;
-    }
-    else if (err)
-    {  
-         return 1;
-    }
-    regfree(&re);
-    return 0;
 }
 
 char *getGDriveID(XLCookies *cookies){
@@ -873,8 +813,6 @@ char *xl_get_yun_url(XLClient *client, char *vurl, char *vname)
 
 failed:
 	xl_http_free(req);
-
-
 	//char *get_url ="http://i.vod.xunlei.com/req_get_method_vod?url=thunder%3A%2F%2FQUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo%3D&video_name=%22%5B%E9%98%B3%E5%85%89%E7%94%B5%E5%BD%B1www.ygdy8.com%5D.%E5%8F%B6%E9%97%AE%EF%BC%9A%E7%BB%88%E6%9E%81%E4%B8%80%E6%88%98.BD.720p.%E5%9B%BD%E7%B2%A4%E5%8F%8C%E8%AF%AD%E4%B8%AD%E5%AD%97.mkv%22&platform=0&userid=288543553&vip=1&sessionid=F827301D73D5DA49AC524CE2B36574FE0D18667A764D6EAEAEFC45F7B510BCB4F9092B1DE6436403F587D60E1542F684598E95A9227619BAEB8C71718C76EA8C&gcid=A74C828D94C8E419D0238C168780C97C30AD6F15&cid=DECE9E4F67AA199E3D7135757AD686AF35228F9D&filesize=1261414195&cache=1375959475212&from=vlist&jsonp=XL_CLOUD_FX_INSTANCEqueryBack";
 
 }
