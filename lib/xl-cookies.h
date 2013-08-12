@@ -52,9 +52,22 @@ _set_cookie_func(pagenum);
 _set_cookie_func(gdriveid);
 _set_cookie_func(lx_nf_all);
 
-_clear_cookie_func(sessionid);
 _clear_cookie_func(lsessionid);
+
+_clear_cookie_func(vip_isvip);
 _clear_cookie_func(lx_sessionid);
+_clear_cookie_func(vip_level);
 _clear_cookie_func(lx_login);
+_clear_cookie_func(dl_enable);
+_clear_cookie_func(in_xl);
+//_clear_cookie_func(ucid);
+//_clear_cookie_func(lixian_section);
+
+_clear_cookie_func(sessionid);
+//_clear_cookie_func(username);
+_clear_cookie_func(nickname);
+_clear_cookie_func(usernewno);
+_clear_cookie_func(userid);
+_clear_cookie_func(gdriveid);
 
 #endif /* __COOKIES_H__ */

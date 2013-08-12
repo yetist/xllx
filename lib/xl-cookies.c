@@ -509,7 +509,20 @@ void  xl_cookies_clear_##a(XLCookies *cookies) \
 	xl_cookies_update_string_line(cookies); \
 }
 
-clear_cookie_func(sessionid);
 clear_cookie_func(lsessionid);
+
+clear_cookie_func(vip_isvip);
 clear_cookie_func(lx_sessionid);
+clear_cookie_func(vip_level);
 clear_cookie_func(lx_login);
+clear_cookie_func(dl_enable);
+clear_cookie_func(in_xl);
+//clear_cookie_func(ucid);
+//clear_cookie_func(lixian_section);
+
+clear_cookie_func(sessionid);
+//clear_cookie_func(username);
+clear_cookie_func(nickname);
+clear_cookie_func(usernewno);
+clear_cookie_func(userid);
+clear_cookie_func(gdriveid);

@@ -42,6 +42,8 @@
 
 #include "parse.h"
 
+#define DEFAULT_PAGENUM "100"
+
 struct _XLClient
 {
     char *username;             /**< Username */
@@ -63,7 +65,7 @@ static void get_verify_code(XLClient *client, XLErrorCode *err);
 static void get_verify_image(XLClient *client);
 static char* encode_password(const char* password, const char* vcode);
 static void xl_client_show_cookie_names(XLHttp *request);
-static XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
+static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
 
 XLClient *xl_client_new(const char *username, const char *password)
 {
@@ -102,7 +104,7 @@ int xl_client_check_verify_code(XLClient *client, XLErrorCode *err)
 	int ret = -1;
 
 	create_post_data(client, msg, sizeof(msg));
-	req = xl_client_open_url(client, "http://login.xunlei.com/sec2login/", HTTP_POST, msg, NULL, err);
+	req = client_open_url(client, "http://login.xunlei.com/sec2login/", HTTP_POST, msg, NULL, err);
 	if (req == NULL)
 		return -1;
 	if (xl_http_get_status(req) != 200)
@@ -131,7 +133,8 @@ int do_login(XLClient *client, XLErrorCode *err)
 	//http://dynamic.cloud.vip.xunlei.com/login?cachetime=1375861841423&cachetime=1375861842103&from=0
 	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
 	xl_cookies_set_pagenum(client->cookies, "1");
-	req = xl_client_open_url(client, url, HTTP_GET, NULL, NULL, err);
+	req = client_open_url(client, url, HTTP_GET, NULL, NULL, err);
+	xl_cookies_set_pagenum(client->cookies, DEFAULT_PAGENUM);
 	if (req == NULL){
 		goto failed;
 	}
@@ -151,22 +154,7 @@ int do_login(XLClient *client, XLErrorCode *err)
 	xl_cookies_receive(client->cookies, req, 1);
 	*err = XL_ERROR_OK;
 	return 0;
-#if 0
-	char *page;
-	page = xl_http_get_body(req);
-	if (page && strlen(page) > 70)
-	{
-		s_free(page);
-		xl_http_free(req);
-		*err = XL_ERROR_OK;
-		return 0;
-	} else {
-		*err = XL_ERROR_ERROR;
-	}
-	printf("page=%s\n", page);
-#endif
 failed:
-	xl_cookies_set_pagenum(client->cookies, "100");
 	xl_http_free(req);
 	return -1;
 }
@@ -194,7 +182,7 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 				//xl_log(LOG_DEBUG, "Get verify code OK\n");
 				break;
 			default:
-				xl_log(LOG_ERROR, "Unknown error\n");
+				xl_log(LOG_ERROR, "Unknown error, err=%d\n", *err);
 				return -1;
 		}
 	}
@@ -212,19 +200,72 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
  *有两种方法可以实现logout
  *第一种清空Cookies，第二种访问http://dynamic.vip.xunlei.com/login/indexlogin_contr/logout/，本方法采用了第一种速度快，现在也没发现什么问题。
  */
-//int xl_client_logout(XLClient *client, XLErrorCode *err)
-//{
-//		ckeys = ["vip_isvip","lx_sessionid","vip_level","lx_login","dl_enable","in_xl","ucid","lixian_section"]
-//		ckeys1 = ["sessionid","usrname","nickname","usernewno","userid"]
-//		gdriveid
-//
-//		self.del_cookie('.vip.xunlei.com', 'gdriveid')
-//		for k in ckeys:
-//			self.set_cookie('.vip.xunlei.com', k, '')
-//		for k in ckeys1:
-//			self.set_cookie('.xunlei.com', k, '')
-//		self.save_cookies()
-//}
+void xl_client_logout(XLClient *client)
+{
+		// from .vip.xunlei.com
+		xl_cookies_clear_vip_isvip(client->cookies);
+		xl_cookies_clear_lx_sessionid(client->cookies);
+		xl_cookies_clear_vip_level(client->cookies);
+		xl_cookies_clear_lx_login(client->cookies);
+		xl_cookies_clear_dl_enable(client->cookies);
+		xl_cookies_clear_in_xl(client->cookies);
+		//xl_cookies_clear_ucid(client->cookies);
+		//xl_cookies_clear_lixian_section(client->cookies);
+
+		// from .xunlei.com
+		xl_cookies_clear_sessionid(client->cookies);
+		//xl_cookies_clear_username(client->cookies);
+		xl_cookies_clear_nickname(client->cookies);
+		xl_cookies_clear_usernewno(client->cookies);
+		xl_cookies_clear_userid(client->cookies);
+
+		// from .vip.xunlei.com
+		xl_cookies_clear_gdriveid(client->cookies);
+}
+
+/**
+ * xl_client_has_logged_in:
+ * @client: the XLClient
+ *
+ * check if user is logged in.
+ *
+ * Return value: if has logged in, return 0; else return -1;
+ **/
+int xl_client_has_logged_in(XLClient *client)
+{
+	int ret = -1;
+	char *page;
+	char *userid;
+	char url[512];
+	XLHttp *req;
+	XLErrorCode err;
+
+	userid = xl_cookies_get_userid(client->cookies);
+	if (!userid)
+		return ret;
+	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/user_task?userid=%s&st=0", userid);
+	s_free(userid);
+	xl_cookies_set_pagenum(client->cookies, "1");
+	req = client_open_url(client, url, HTTP_GET, NULL, NULL, &err);
+	xl_cookies_set_pagenum(client->cookies, DEFAULT_PAGENUM);
+	if (req == NULL){
+		goto failed;
+	}
+	if ( xl_http_get_status(req) != 200)
+		goto failed;
+	page = xl_http_get_body(req);
+	if (page && strlen(page) > 512)
+	{
+		xl_http_free(req);
+		ret = 0;
+	}
+	//s_free(page);
+	return ret;
+failed:
+	xl_http_free(req);
+	return ret;
+}
+
 static void xl_client_show_cookie_names(XLHttp *request)
 {
     int i, nums;
@@ -253,12 +294,22 @@ static void xl_client_show_cookie_names(XLHttp *request)
 	}
 }
 
+XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err)
+{
+	if (xl_client_has_logged_in(client) != 0)
+	{
+		*err = XL_ERROR_LOGIN_EXPIRE;
+		return NULL;
+	}
+	return client_open_url(client, url, method, post_data, refer, err);
+}
+
 /*
  * setup cookies and request url
  * then XLHttp pointer
  * don't forget to free it with xl_http_free(req);
  * */
-static XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err)
+static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err)
 {
 	XLHttp *req;
 	char *cookies;
@@ -290,7 +341,7 @@ static XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod 
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	printf("[----html----\n%s\n----html----]\n", xl_http_request_get_response(req));
+	printf("[----html----\n%s\n----html----]\n", xl_http_get_response(req));
 	xl_client_show_cookie_names(req);
 	return req;
 failed:
@@ -323,7 +374,7 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 	char url[512];
 
 	snprintf(url, sizeof(url), "http://login.xunlei.com/check?u=%s&cachetime=%ld", client->username, get_current_timestamp());
-	req = xl_client_open_url(client, url, HTTP_GET, NULL, NULL, err);
+	req = client_open_url(client, url, HTTP_GET, NULL, NULL, err);
 	if (req == NULL){
 		goto failed;
 	}
@@ -355,7 +406,7 @@ static void get_verify_image(XLClient *client)
 	XLErrorCode err;
 
 	snprintf(url, sizeof(url), "http://verify2.xunlei.com/image?cachetime=%ld", get_current_timestamp());
-	req = xl_client_open_url(client, url, HTTP_GET, NULL, NULL, &err);
+	req = client_open_url(client, url, HTTP_GET, NULL, NULL, &err);
 	if (req == NULL){
 		goto failed;
 	}
@@ -753,7 +804,7 @@ int xl_add_yun_task(XLClient *client, char *url)
 	char post_url[256];
 	memset(post_url, '\0', 256);
 	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_video_name?from=vlist&platform=0");
-	req = xl_client_open_url(client, post_url, HTTP_POST, buf, NULL, err);
+	req = client_open_url(client, post_url, HTTP_POST, buf, NULL, err);
 
 	char *response = xl_http_get_response(req);
 	char name[256];
@@ -774,7 +825,7 @@ int xl_add_yun_task(XLClient *client, char *url)
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=%s&sessionid=%s", userid, sessionid);
 	printf("p_url is %s \n", p_url);
 
-	req = xl_client_open_url(client, p_url, HTTP_POST, buf, NULL, err);
+	req = client_open_url(client, p_url, HTTP_POST, buf, NULL, err);
 	response = xl_http_get_response(req);
 	printf("get response %s\n",  xl_http_get_response(req));
 	if (xl_get_ret_from_response(response) == 0)
@@ -783,7 +834,6 @@ int xl_add_yun_task(XLClient *client, char *url)
 		return 1;
 	}
 	return 0;
-
 }
 
 
@@ -809,7 +859,7 @@ char *xl_get_yun_url(XLClient *client, char *vurl, char *vname)
 
 	XLHttp *req;
 	XLErrorCode err;
-	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
+	req = client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
 	printf("get response %s\n",  xl_http_get_response(req));
 
 failed:
