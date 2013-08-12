@@ -24,6 +24,7 @@
 #define __XL_VOD_H__  1
 
 #include "xl-client.h"
+#include "xllx.h"
 
 typedef enum
 {

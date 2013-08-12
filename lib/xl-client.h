@@ -24,7 +24,8 @@
 #define __CLIENT_H__  1
 
 #include "xllx.h"
-#include "info.h"
+#include "xl-http.h"
+#include "xl-cookies.h"
 
 typedef struct _XLClient XLClient;
 
@@ -37,13 +38,11 @@ void      xl_client_set_verify_code(XLClient *client, const char *vcode);
 void      xl_client_free(XLClient *client);
 XLHttp*   xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
 
-void xl_read_all_complete_tasks(XLClient *client);
 char *lwqq_get_cookies(XLClient *lc);
 
-int xl_add_yun_task(XLClient *client, char *url);
-char *xl_get_yun_url(XLClient *client, char *vurl, char *vname);
+XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
 
 //void lwqq_vc_free(LwqqVerifyCode *vc);
-
+XLCookies *xl_client_get_cookies(XLClient *client);
 
 #endif /* __CLIENT_H__ */
