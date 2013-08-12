@@ -25,7 +25,7 @@
 #include <ghttp.h>
 #include "smemory.h"
 #include "xllx.h"
-#include "http.h"
+#include "xl-http.h"
 #include "logger.h"
 
 #define XL_HTTP_USER_AGENT "User-Agent: Mozilla/5.0 \
@@ -33,21 +33,9 @@
 
 #define CHUNK 1024 * 1024
 
-char* mystrdup(const char *str)
-{
-	size_t siz;
-	char *copy;
-
-	siz = strlen(str) + 1;
-	if ((copy = (char *)malloc(siz)) == NULL)
-		   return(NULL);
-		   (void)memcpy(copy, str, siz);
-	return(copy);
-}
-
 typedef struct _AsyncWatchData AsyncWatchData;
 
-struct _XLHttpRequest
+struct _XLHttp
 {
 	ghttp_request *req;
 	int http_code;
@@ -58,7 +46,7 @@ struct _XLHttpRequest
 /* Those Code for async API */
 struct _AsyncWatchData
 {
-	XLHttpRequest *request;
+	XLHttp *request;
 	XLAsyncCallback callback;
 	void *data;
 };
@@ -70,15 +58,15 @@ static pthread_cond_t xl_async_cond = PTHREAD_COND_INITIALIZER;
 static char *ungzip(const char *source, int len, int *total);
 static void *xl_async_thread(void* data);
 static void ev_io_come(EV_P_ ev_io* w,int revent);
-static void  xl_http_request_set_default_header(XLHttpRequest *request);
+static void  xl_http_set_default_header(XLHttp *request);
 
-XLHttpRequest *xl_http_request_new(const char *uri)
+XLHttp *xl_http_new(const char *uri)
 {
 	if (!uri) {
 		return NULL;
 	}
 
-	XLHttpRequest *request;
+	XLHttp *request;
 	request = s_malloc0(sizeof(*request));
 
 	request->req = ghttp_request_new();
@@ -95,14 +83,14 @@ XLHttpRequest *xl_http_request_new(const char *uri)
 
 failed:
 	if (request) {
-		xl_http_request_free(request);
+		xl_http_free(request);
 	}
 	return NULL;
 }
 
-XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
+XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 {
-	XLHttpRequest *req;
+	XLHttp *req;
 
 	if (!url) {
 		if (err)
@@ -110,7 +98,7 @@ XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
 		return NULL;
 	}
 
-	req = xl_http_request_new(url);
+	req = xl_http_new(url);
 	if (!req) {
 		//xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
 		if (err)
@@ -118,12 +106,12 @@ XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err)
 		return NULL;
 	}
 
-	xl_http_request_set_default_header(req);
+	xl_http_set_default_header(req);
 	//xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
 	return req;
 }
 
-int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
+int xl_http_open(XLHttp *request, HttpMethod method, char *body)
 {
 	if (!request->req)
 		return -1;
@@ -181,7 +169,7 @@ int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body)
 
 	/* Uncompress data here if we have a Content-Encoding header */
 	char *enc_type = NULL;
-	enc_type = xl_http_request_get_header(request, "Content-Encoding");
+	enc_type = xl_http_get_header(request, "Content-Encoding");
 	if (enc_type && strstr(enc_type, "gzip")) {
 		char *outdata;
 		int total = 0;
@@ -219,7 +207,7 @@ failed:
 	return -1;
 }
 
-int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method,
+int xl_http_open_async(XLHttp *request, HttpMethod method,
 		char *body, XLAsyncCallback callback,
 		void *data)
 {
@@ -227,7 +215,7 @@ int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method,
 
 	if (ghttp_set_type(request->req, method) == -1) {
 		xl_log(LOG_WARNING, "Set request type error\n");
-		xl_http_request_free(request);
+		xl_http_free(request);
 		return -1;
 	}
 
@@ -238,14 +226,14 @@ int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method,
 
 	ghttp_set_sync(request->req, ghttp_async);
 	if (ghttp_prepare(request->req)) {
-		xl_http_request_free(request);
+		xl_http_free(request);
 		return -1;
 	}
 
 	status = ghttp_process(request->req);
 	if (status != ghttp_not_done){
 		xl_log(LOG_ERROR, "BUG!!!async error\n");
-		xl_http_request_free(request);
+		xl_http_free(request);
 		return -1;
 	}
 
@@ -272,7 +260,7 @@ int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method,
 	return 0;
 }
 
-void xl_http_request_set_header(XLHttpRequest *request, const char *name, const char *value)
+void xl_http_set_header(XLHttp *request, const char *name, const char *value)
 {
 	if (!request->req || !name || !value)
 		return ;
@@ -280,19 +268,19 @@ void xl_http_request_set_header(XLHttpRequest *request, const char *name, const 
 	ghttp_set_header(request->req, name, value);
 }
 
-static void xl_http_request_set_default_header(XLHttpRequest *request)
+static void xl_http_set_default_header(XLHttp *request)
 {
-	xl_http_request_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
-	xl_http_request_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
-	xl_http_request_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");
-	xl_http_request_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
-	//xl_http_request_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
-	xl_http_request_set_header(request, "Accept-Encoding", "gzip, deflate");
-	xl_http_request_set_header(request, "Connection", "Keep-Alive");
+	xl_http_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
+	xl_http_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
+	xl_http_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");
+	xl_http_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
+	//xl_http_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
+	xl_http_set_header(request, "Accept-Encoding", "gzip, deflate");
+	xl_http_set_header(request, "Connection", "Keep-Alive");
 
 }
 
-char *xl_http_request_get_header(XLHttpRequest *request, const char *name)
+char *xl_http_get_header(XLHttp *request, const char *name)
 {
 	if (!name) {
 		xl_log(LOG_ERROR, "Invalid parameter\n");
@@ -310,7 +298,7 @@ char *xl_http_request_get_header(XLHttpRequest *request, const char *name)
 /*
  * return count of cookies
  */
-int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
+int xl_http_get_cookie_names(XLHttp *request, char ***names)
 {
     int ret;
     char **cookies;
@@ -324,7 +312,7 @@ int xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names)
     return nums;
 }
 
-int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
+int xl_http_has_cookie(XLHttp *request, const char* key)
 {
     int i, nums;
 	char **cookies;
@@ -332,7 +320,7 @@ int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
 	char keyname[256];
 
 	snprintf(keyname, sizeof(keyname), "%s=", key);
-	nums = xl_http_request_get_cookie_names(request, &cookies);
+	nums = xl_http_get_cookie_names(request, &cookies);
 	if (nums == 0)
 		return found;
     for (i=0 ; i < nums; i++)
@@ -355,7 +343,7 @@ int xl_http_request_has_cookie(XLHttpRequest *request, const char* key)
 	return found;
 }
 
-char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)
+char *xl_http_get_cookie(XLHttp *request, const char *name)
 {
 	if (!name) {
 		xl_log(LOG_ERROR, "Invalid parameter\n");
@@ -372,22 +360,22 @@ char *xl_http_request_get_cookie(XLHttpRequest *request, const char *name)
 	return cookie;
 }
 
-int xl_http_request_get_status(XLHttpRequest *request)
+int xl_http_get_status(XLHttp *request)
 {
 	return request->http_code;
 }
 
-char* xl_http_request_get_body(XLHttpRequest *request)
+char* xl_http_get_body(XLHttp *request)
 {
     return request->response;
 }
 
-int xl_http_request_get_body_len(XLHttpRequest *request)
+int xl_http_get_body_len(XLHttp *request)
 {
 	return request->resp_len;
 }
 
-void xl_http_request_free(XLHttpRequest *request)
+void xl_http_free(XLHttp *request)
 {
 	if (!request)
 		return;
@@ -504,7 +492,7 @@ static void ev_io_come(EV_P_ ev_io* w, int revent)
 	AsyncWatchData *d = (AsyncWatchData *) w->data;
 	XLErrorCode ec;
 	char *buf;
-	XLHttpRequest *lhr = d->request;
+	XLHttp *lhr = d->request;
 	ghttp_request *req = lhr->req;
 
 
@@ -535,7 +523,7 @@ done:
 	if (ec == XL_ERROR_OK && lhr->response) {
 		/* Uncompress data here if we have a Content-Encoding header */
 		char *enc_type = NULL;
-		enc_type = xl_http_request_get_header(lhr, "Content-Encoding");
+		enc_type = xl_http_get_header(lhr, "Content-Encoding");
 		if (enc_type && strstr(enc_type, "gzip")) {
 			char *outdata;
 			int total = 0;
@@ -564,7 +552,7 @@ done:
 
 	/* OK, exit this request */
 	ev_io_stop(EV_DEFAULT, w);
-	xl_http_request_free(d->request);
+	xl_http_free(d->request);
 	s_free(d);
 	s_free(w);
 }

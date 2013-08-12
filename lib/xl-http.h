@@ -34,25 +34,25 @@ typedef enum
 
 typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);
 
-typedef struct _XLHttpRequest XLHttpRequest;
+typedef struct _XLHttp XLHttp;
 
-XLHttpRequest *xl_http_request_new(const char *url);
-XLHttpRequest *xl_http_request_create_default(const char *url, XLErrorCode *err);
+XLHttp *xl_http_new(const char *url);
+XLHttp *xl_http_create_default(const char *url, XLErrorCode *err);
 
-int xl_http_request_open(XLHttpRequest *request, HttpMethod method, char *body);
-int xl_http_request_open_async(XLHttpRequest *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
+int xl_http_open(XLHttp *request, HttpMethod method, char *body);
+int xl_http_open_async(XLHttp *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
 
-void xl_http_request_set_header(XLHttpRequest *request, const char *name, const char *value);
+void xl_http_set_header(XLHttp *request, const char *name, const char *value);
 
-char* xl_http_request_get_header(XLHttpRequest *request, const char *name);
-char* xl_http_request_get_cookie(XLHttpRequest *request, const char *name);
-int   xl_http_request_get_cookie_names(XLHttpRequest *request, char ***names);
-int   xl_http_request_has_cookie(XLHttpRequest *request, const char *name);
-int   xl_http_request_get_status(XLHttpRequest *request);
-char* xl_http_request_get_body(XLHttpRequest *request);
-int   xl_http_request_get_body_len(XLHttpRequest *request);
-#define xl_http_request_get_response xl_http_request_get_body
+char* xl_http_get_header(XLHttp *request, const char *name);
+char* xl_http_get_cookie(XLHttp *request, const char *name);
+int   xl_http_get_cookie_names(XLHttp *request, char ***names);
+int   xl_http_has_cookie(XLHttp *request, const char *name);
+int   xl_http_get_status(XLHttp *request);
+char* xl_http_get_body(XLHttp *request);
+int   xl_http_get_body_len(XLHttp *request);
+#define xl_http_get_response xl_http_get_body
 
-void xl_http_request_free(XLHttpRequest *request);
+void xl_http_free(XLHttp *request);
 
 #endif  /* XL_HTTP_H */

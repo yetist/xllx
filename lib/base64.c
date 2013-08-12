@@ -49,7 +49,6 @@ static int pos(char c)
 	return -1;
 }
 
-#if 1
 size_t base64_encode(const void *data, int size, char **str)
 {
 	char *s, *p;
@@ -86,7 +85,6 @@ size_t base64_encode(const void *data, int size, char **str)
 	*str = s;
 	return strlen(s);
 }
-#endif
 
 int base64_decode(const char *str, void *data)
 {

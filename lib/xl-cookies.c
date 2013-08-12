@@ -22,7 +22,7 @@
 
 #include <string.h>
 #include "smemory.h"
-#include "cookies.h"
+#include "xl-cookies.h"
 #include "logger.h"
 
 struct _XLCookies {
@@ -98,14 +98,14 @@ XLCookies* xl_cookies_new(void)
  * @param value 
  * @param update_cache Weather update string member
  */
-void xl_cookies_update(XLCookies *cookies, XLHttpRequest *req, const char *key, int update_cache)
+void xl_cookies_update(XLCookies *cookies, XLHttp *req, const char *key, int update_cache)
 {
     if (!cookies || !req || !key) {
         xl_log(LOG_ERROR, "Null pointer access\n");
         return ;
     }
 
-    char *value = xl_http_request_get_cookie(req, key);
+    char *value = xl_http_get_cookie(req, key);
     if (value == NULL)
         return ;
     
@@ -369,7 +369,7 @@ void xl_cookies_update_string_line(XLCookies *cookies)
 	free_and_strdup(cookies->string_line, buf);
 }
 
-void xl_cookies_receive(XLCookies *cookies, XLHttpRequest *req, int update)
+void xl_cookies_receive(XLCookies *cookies, XLHttp *req, int update)
 {
 	char buf[256];
 
