@@ -29,20 +29,14 @@
 
 typedef struct _XLClient XLClient;
 
-XLClient* xl_client_new(const char *username, const char *password);
-int       xl_client_login(XLClient *client, XLErrorCode *err);
-int       xl_client_has_logged_in(XLClient *client); 
-void      xl_client_logout(XLClient *client);
-void      xl_client_set_verify_image_path(XLClient *client, const char *path);
-void      xl_client_set_verify_code(XLClient *client, const char *vcode);
-void      xl_client_free(XLClient *client);
-XLHttp*   xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
+XLClient*  xl_client_new(const char *username, const char *password);
+int        xl_client_login(XLClient *client, XLErrorCode *err);
+void       xl_client_logout(XLClient *client);
+void       xl_client_set_verify_image_path(XLClient *client, const char *path);
+void       xl_client_set_verify_code(XLClient *client, const char *vcode);
+void       xl_client_free(XLClient *client);
+XLHttp*    xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
+XLCookies* xl_client_get_cookies(XLClient *client);
 
-char *lwqq_get_cookies(XLClient *lc);
-
-XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
-
-//void lwqq_vc_free(LwqqVerifyCode *vc);
-XLCookies *xl_client_get_cookies(XLClient *client);
 
 #endif /* __CLIENT_H__ */

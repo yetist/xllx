@@ -23,22 +23,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
 #include <json.h>
 
-#include "xllx.h"
-#include "xl-cookies.h"
 #include "xl-client.h"
 #include "xl-url.h"
 #include "xl-utils.h"
 #include "smemory.h"
 #include "logger.h"
 #include "md5.h"
-
-#include "parse.h"
 
 #define DEFAULT_PAGENUM "100"
 
@@ -50,11 +44,12 @@ struct _XLClient
 	char *vimgpath;
     XLCookies *cookies;
 };
-static void get_verify_code(XLClient *client, XLErrorCode *err);
-static void get_verify_image(XLClient *client);
+static void  get_verify_code(XLClient *client, XLErrorCode *err);
+static void  get_verify_image(XLClient *client);
 static char* encode_password(const char* password, const char* vcode);
-static void xl_client_show_cookie_names(XLHttp *request);
-static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
+static int     client_has_logged_in(XLClient *client); 
+static void    client_show_cookie_names(XLHttp *request);
+static XLHttp* client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
 
 XLClient *xl_client_new(const char *username, const char *password)
 {
@@ -68,7 +63,6 @@ XLClient *xl_client_new(const char *username, const char *password)
 	client->password = s_strdup(password);
 	client->cookies = xl_cookies_new();
 
-	//xl_log(LOG_DEBUG, "Create a new client with username:%s, password:%s successfully\n", client->username, client->password);
 	return client;
 }
 
@@ -213,14 +207,14 @@ void xl_client_logout(XLClient *client)
 }
 
 /**
- * xl_client_has_logged_in:
+ * client_has_logged_in:
  * @client: the XLClient
  *
  * check if user is logged in.
  *
  * Return value: if has logged in, return 0; else return -1;
  **/
-int xl_client_has_logged_in(XLClient *client)
+static int client_has_logged_in(XLClient *client)
 {
 	int ret = -1;
 	char *page;
@@ -248,14 +242,13 @@ int xl_client_has_logged_in(XLClient *client)
 		xl_http_free(req);
 		ret = 0;
 	}
-	//s_free(page);
 	return ret;
 failed:
 	xl_http_free(req);
 	return ret;
 }
 
-static void xl_client_show_cookie_names(XLHttp *request)
+static void client_show_cookie_names(XLHttp *request)
 {
     int i, nums;
 	char **cookies;
@@ -290,7 +283,7 @@ static void xl_client_show_cookie_names(XLHttp *request)
  * */
 XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err)
 {
-	if (xl_client_has_logged_in(client) != 0)
+	if (client_has_logged_in(client) != 0)
 	{
 		*err = XL_ERROR_LOGIN_EXPIRE;
 		return NULL;
@@ -312,15 +305,15 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 	if (!req) {
 		goto failed;
 	}
-    xl_log(LOG_NOTICE, "URL=%s\n", url);
+    xl_log(LOG_NOTICE, "URL[%s]\n", url);
     cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
-		xl_log(LOG_NOTICE, "Set-Cookie=%s\n", cookies);
+		xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
 		xl_http_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
     if (refer != NULL) {
-		xl_log(LOG_NOTICE, "Refer=%s\n", refer);
+		xl_log(LOG_NOTICE, "Refer[%s]\n", refer);
 		xl_http_set_header(req, "Refer", refer);
     }
 	if (post_data != NULL)
@@ -335,8 +328,8 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	printf("[----html----\n%s\n----html----]\n", xl_http_get_response(req));
-	xl_client_show_cookie_names(req);
+	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(req), xl_http_get_response(req));
+	client_show_cookie_names(req);
 	return req;
 failed:
 	xl_http_free(req);
@@ -472,7 +465,11 @@ void xl_client_free(XLClient *client)
 
 XLCookies *xl_client_get_cookies(XLClient *client)
 {
-	return client ->  cookies;
+	if (!client)
+		return NULL;
+	if (!client->cookies)
+		return NULL;
+	return client->cookies;
 }
 
 

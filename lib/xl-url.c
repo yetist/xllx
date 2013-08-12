@@ -99,7 +99,7 @@ char* xl_url_unquote(char *str)
 char* xl_url_thunder_encode(const char* uri)
 {
     char p[256]={0}, *b64, *url;
-    size_t l, len;
+    size_t len;
 
     snprintf(p, sizeof(p), "AA%sZZ", uri);
     len = base64_encode(p, strlen(p), &b64);
@@ -122,7 +122,6 @@ char* xl_url_thunder_decode(const char* euri)
     p = (char*) euri;
 
     if (strncmp(euri, "thunder://", 10) == 0) {
-        size_t offset;
         p += 10;
         base64_decode(p, &u); 
 
@@ -137,7 +136,7 @@ char* xl_url_thunder_decode(const char* euri)
 char* xl_url_qqdl_encode(const char* uri)
 {
 	char *b64, *url;
-    size_t l, len;
+    size_t len;
 
     len = base64_encode(uri, strlen(uri), &b64);
 	if (len < 0)

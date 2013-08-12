@@ -21,8 +21,11 @@
  * */
 
 #include <stdio.h>
+#include <ctype.h>
 #include <sys/time.h>
 #include <regex.h>
+
+#include "smemory.h"
 #include "xl-utils.h"
 
 long get_current_timestamp(void)
