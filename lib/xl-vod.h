@@ -28,9 +28,9 @@
 
 typedef enum
 {
-	VIDEO_1080P,
-	VIDEO_720P,
 	VIDEO_480P,
+	VIDEO_720P,
+	VIDEO_1080P,
 } VideoType;
 
 typedef struct _XLVod XLVod;

@@ -102,8 +102,7 @@ int if_response_has_url(char *response, char *url)
 		return 0;
 	}
 
-	char *en_url = xl_url_quote((char *)url);
-	xl_log(LOG_NOTICE, "en_url is %s\n", en_url);
+	xl_log(LOG_NOTICE, "url is %s\n", url);
 
 	resp_obj = json_object_object_get(resp, "resp"); 
 	if (resp_obj)
@@ -121,18 +120,21 @@ int if_response_has_url(char *response, char *url)
 					if (n)
 					{
 						char *src_url = json_object_get_string(n);
-						if (strcmp(src_url, en_url) == 0)
+						char *un_url = xl_url_unquote(src_url);
+						xl_log(LOG_NOTICE, "un_url is %s\n", un_url);
+
+						if (strcmp(un_url, url) == 0)
 						{
-							s_free(en_url);
-							xl_log(LOG_NOTICE, "url is %s", url);
+							xl_log(LOG_NOTICE, "url is %s\n", url);
+							s_free(un_url);
 							return 1;
 						}
+						s_free(un_url);
 					}
 				}
 			}
 		}
 	}
-	s_free(en_url);
 	return 0;
 }
 
@@ -729,6 +731,70 @@ int xl_vod_add_video(XLVod *vod, const char* url)
 	return 0;
 }
 
+char *get_download_url_from_response(char *response, VideoType type)
+{
+	struct json_object *resp;
+	struct json_object *resp_obj;
+	struct json_object *res_array;
+	struct json_object *obj;
+	struct json_object *duration;
+	char *url = NULL;
+	char download_url[512];
+	int du = 0;
+
+	resp = json_tokener_parse(response);
+	if (!resp)
+		return NULL;
+	if(	is_error(resp)) 
+	{
+		printf("got error as expected\n");
+		return NULL;
+	}
+
+	resp_obj = json_object_object_get(resp, "resp"); 
+	if (resp_obj)
+	{
+		res_array = json_object_object_get(resp_obj, "vodinfo_list"); 
+		if (res_array)
+		{
+			//int i;
+			//for (i = 0; i < json_object_array_length(res_array); i++)
+			//	{
+			obj = json_object_array_get_idx(res_array, type);
+			if (obj)
+			{
+				struct json_object *n = json_object_object_get(obj, "vod_url"); 
+				if (n)
+				{
+					char *vod_url = json_object_get_string(n);
+					url = strdup(vod_url);
+					xl_log(LOG_NOTICE, "url is %s\n", url);
+				}
+			}
+			//	}
+		}
+		duration = json_object_object_get(resp_obj, "duration"); 
+		if (duration)
+			du = (long)json_object_get_int(duration)/1000/1000;
+		xl_log(LOG_NOTICE, "du %d\n", du);
+	}
+	if (url)
+	{
+		char *substr = strstr(url, "s=");
+		char num[20];
+		int i =0;
+		for (*(substr+2); *(substr+2 + i) != '&'; i++)
+		{
+			num[i] = *(substr+2 + i);
+		}
+		num[i] = '\0';
+		xl_log(LOG_NOTICE, "substr is %s, num is %s\n", substr, num);
+		snprintf(download_url, sizeof(download_url), "%s&start=0&end=%s&type=normal&du=%d", url, num, du);
+		xl_log(LOG_NOTICE, "download_url is %s\n", download_url);
+		s_free(url);
+	}
+	return strdup(download_url);
+}
 
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 {
@@ -761,17 +827,12 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	s_free(name);
 	s_free(en_url);
 	s_free(en_name);
-//	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
+	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
 	XLHttp *req;
 	XLErrorCode err;
-	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
+	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
+	char *response =  xl_http_get_body(req);
 	printf("get response %s\n",  xl_http_get_body(req));
-
-	return NULL;
-
-//failed:
-//	xl_http_free(req);
-	//char *get_url ="http://i.vod.xunlei.com/req_get_method_vod?url=thunder%3A%2F%2FQUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo%3D&video_name=%22%5B%E9%98%B3%E5%85%89%E7%94%B5%E5%BD%B1www.ygdy8.com%5D.%E5%8F%B6%E9%97%AE%EF%BC%9A%E7%BB%88%E6%9E%81%E4%B8%80%E6%88%98.BD.720p.%E5%9B%BD%E7%B2%A4%E5%8F%8C%E8%AF%AD%E4%B8%AD%E5%AD%97.mkv%22&platform=0&userid=288543553&vip=1&sessionid=F827301D73D5DA49AC524CE2B36574FE0D18667A764D6EAEAEFC45F7B510BCB4F9092B1DE6436403F587D60E1542F684598E95A9227619BAEB8C71718C76EA8C&gcid=A74C828D94C8E419D0238C168780C97C30AD6F15&cid=DECE9E4F67AA199E3D7135757AD686AF35228F9D&filesize=1261414195&cache=1375959475212&from=vlist&jsonp=XL_CLOUD_FX_INSTANCEqueryBack";
-
+	return	get_download_url_from_response(response, type);
 }
