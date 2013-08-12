@@ -83,8 +83,81 @@ void xl_vod_free(XLVod *vod)
 	s_free(vod);
 }
 
+int if_response_has_url(char *response, char *url)
+{
+	struct json_object *resp;
+	struct json_object *resp_obj;
+	struct json_object *res_array;
+	struct json_object *obj;
+
+	if(!url)
+		return 0;
+
+	resp = json_tokener_parse(response);
+	if (!resp)
+		return 0;
+	if(	is_error(resp)) 
+	{
+		printf("got error as expected\n");
+		return 0;
+	}
+
+	char *en_url = xl_url_quote((char *)url);
+	xl_log(LOG_NOTICE, "en_url is %s\n", en_url);
+
+	resp_obj = json_object_object_get(resp, "resp"); 
+	if (resp_obj)
+	{
+		res_array = json_object_object_get(resp_obj, "history_play_list"); 
+		if (res_array)
+		{
+			int i;
+			for (i = 0; i < json_object_array_length(res_array); i++)
+			{
+				obj = json_object_array_get_idx(res_array, i);
+				if (obj)
+				{
+					struct json_object *n = json_object_object_get(obj, "src_url"); 
+					if (n)
+					{
+						char *src_url = json_object_get_string(n);
+						if (strcmp(src_url, en_url) == 0)
+						{
+							s_free(en_url);
+							xl_log(LOG_NOTICE, "url is %s", url);
+							return 1;
+						}
+					}
+				}
+			}
+		}
+	}
+	s_free(en_url);
+	return 0;
+}
+
 int xl_vod_has_video(XLVod *vod, const char* url)
 {
+	//http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=1376293731064
+	char get[512];
+	XLClient *client = vod -> client;
+	XLHttp *req;
+	XLErrorCode err;
+
+	snprintf(get, sizeof(get) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
+	xl_log(LOG_NOTICE, "get url is %s\n", get);
+
+	req = xl_client_open_url(client, get, HTTP_GET, NULL, DEFAULT_REFERER, &err);
+
+	char *response = xl_http_get_body(req);
+	printf("here the response is %s\n", response);
+	if(if_response_has_url(response, url))
+	{
+		printf("has the video\n");
+	}
+
+	xl_http_free(req);
+
 	return 0;
 }
 
@@ -411,7 +484,6 @@ void downloadn(void)
 	//Refer: http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01
 	//URL: http://vod17.c18.lixian.vip.xunlei.com/download?dt=16&g=DCF593C8DC3AF6DB85BA4C2BE2E446BB609C11C2&t=2&ui=288543553&s=470460652&v_type=-1&scn=c16&it=1376078889&cc=16545132729795102816&p=0&n=09C2055CFB3D8889E70D5921F5697A7777B795A32CA1352E63F68199663D82B6E90E422BF442EABB887F7245AC608DE68801C2860CF63A3230E9C221D365EAB2A47C6348A077A0E4B8340969DFF6606B76&ts=1376061607&start=55913294&end=103178505&type=normal&du=6013
 }
-#endif
 
 static void create_get_name_post_data(const char *url, char *buf, int buflen)
 {
@@ -464,8 +536,9 @@ static void create_add_yun_post_data(const char *url, char *name, char *buf, int
 	snprintf(buf, buflen,"%s", pname_argument);
 	json_object_put(urls_obj);
 }
+#endif
 
-void xl_get_name_from_response(char *response, char *buf, int buflen)
+char *xl_get_name_from_response(char *response)
 {
 	struct json_object *resp;
 	struct json_object *resp_obj;
@@ -473,59 +546,82 @@ void xl_get_name_from_response(char *response, char *buf, int buflen)
 	struct json_object *obj;
 	char *name = NULL;
 
+	printf("here res is %s\n", response);
+
 	resp = json_tokener_parse(response);
 
-	int rest = (int)json_object_object_get(resp, "ret");
-	if (rest == 0)
-	{
-		resp_obj = json_object_object_get(resp, "resp"); 
-		if (resp_obj)
-		{
-			res_array = json_object_object_get(resp_obj, "res"); 
-			if (res_array)
-			{
-				obj = json_object_array_get_idx(res_array, 0);
-				if (obj)
-				{
-					struct json_object *n = json_object_object_get(obj, "name"); 
+	if (!resp)
+		return NULL;
 
-					//char *url = (char *)json_object_object_get(obj, "url"); 
-					if (n)
-					{
-						name = strdup(json_object_get_string(n));
-						printf("name : %s\n", name);
-					}
+	if(	is_error(resp)) 
+	{
+		printf("got error as expected\n");
+		return NULL;
+	}
+
+	resp_obj = json_object_object_get(resp, "resp"); 
+	if (resp_obj)
+	{
+		res_array = json_object_object_get(resp_obj, "res"); 
+		if (res_array)
+		{
+			obj = json_object_array_get_idx(res_array, 0);
+			if (obj)
+			{
+				struct json_object *n = json_object_object_get(obj, "name"); 
+
+				//char *url = (char *)json_object_object_get(obj, "url"); 
+				if (n)
+				{
+					name = strdup(json_object_get_string(n));
+					printf("name : %s\n", name);
 				}
 			}
 		}
 	}
 	if (name)
 	{
-		snprintf(buf, buflen, "%s", name);
-		s_free(name);
+		return name;
 	}
+	return NULL;
 }
 
 int xl_get_ret_from_response(char *response)
 {
+	if (!response)
+		return -1;
 	struct json_object *resp;
 	struct json_object *resp_obj;
 	resp = json_tokener_parse(response);
+
+	if(	is_error(resp)) 
+	{
+		printf("got error as expected\n");
+		return -1;
+	}
 	resp_obj = json_object_object_get(resp, "resp"); 
 	if (resp_obj)
 	{
 		printf ("resp_obj: %s\n", json_object_to_json_string(resp_obj));
-		int rest = (int)json_object_object_get(resp, "ret");
-		if (rest == 0)
-			xl_log(LOG_NOTICE, "Add yun tasks successfully\n");
-			return 0;
+		struct json_object *ret_obj = json_object_object_get(resp, "ret");
+		if (ret_obj)
+		{
+			int rest = json_object_get_int(ret_obj);
+			if (rest == 0)
+			{
+				xl_log(LOG_NOTICE, "Add yun tasks successfully\n");
+				return 0;
+			}
+		}
 	}
 
 	return 1;
 }
 
-int from_url_get_name(XLVod *vod, const char* url, char *buf, int buflen)
+char *from_url_get_name(XLVod *vod, const char* url)
 {
+	if (!url)
+		return NULL;
 	XLClient *client = vod -> client;
 	char *userid;
 	char *sessionid;
@@ -545,28 +641,39 @@ int from_url_get_name(XLVod *vod, const char* url, char *buf, int buflen)
 	{
 		printf("\nsessionid=%s\n", sessionid);
 	}
-	memset(buf, '\0', buflen);
-	create_get_name_post_data(url, buf, buflen);
+	char parg[512];
+	memset(parg, '\0', sizeof(parg));
+	//create_get_name_post_data(url, buf, buflen);
+	//{ "urls": [ { "id": 0, "url": "thunder%3A%2F%2FQUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NU%20MwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa" } ] }
+	if (url)
+	{
+		char *en_url = xl_url_quote((char *)url);
+		snprintf(parg, sizeof(parg), "{\"urls\":[{\"id\":0, \"url\":\"%s\"}]}", en_url);
+		printf("post argument is %s\n ", parg);
+		s_free(en_url);
+	}
 
 	char post_url[256];
 	memset(post_url, '\0', 256);
 	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_video_name?from=vlist&platform=0");
 	//XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
-	req = xl_client_open_url(client, post_url, HTTP_POST, buf, DEFAULT_REFERER, &err);
+	req = xl_client_open_url(client, post_url, HTTP_POST, parg, DEFAULT_REFERER, &err);
 
-	char *response = xl_http_get_response(req);
-	memset(buf, '\0', buflen);
-	xl_get_name_from_response(response, buf, buflen);
-	return 0;
+	char *response = xl_http_get_body(req);
+	printf("here the response is %s\n", response);
+	char *name = xl_get_name_from_response(response);
+	return name;
 }
 
 int xl_vod_add_video(XLVod *vod, const char* url)
 {
-	XLClient *client = vod -> client;
+	//	char *from_url_get_name(XLVod *vod, const char* url)
+	char *name = from_url_get_name(vod, url);
+		XLClient *client = vod -> client;
 
 	XLHttp *req;
 	XLErrorCode err;
-//	url = "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=";
+	char *response;
 	char *userid;
 	char *sessionid;
 	char buf[256];
@@ -585,35 +692,34 @@ int xl_vod_add_video(XLVod *vod, const char* url)
 		printf("\nsessionid=%s\n", sessionid);
 	}
 	memset(buf, '\0', 256);
-	create_get_name_post_data(url, buf, 256);
 
-	char post_url[256];
-	memset(post_url, '\0', 256);
-	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_video_name?from=vlist&platform=0");
-	req = xl_client_open_url(client, post_url, HTTP_POST, buf, DEFAULT_REFERER, &err);
 
-	char *response = xl_http_get_response(req);
-	char name[256];
-	memset(name, '\0', 256);
-	xl_get_name_from_response(response, name, 256);
-	if (strcmp(name, "\"\"") == 0)
+	xl_log(LOG_NOTICE, "name is %s\n", name);
+	if (name == NULL || strcmp (name, "") == 0)
 	{
 		xl_log(LOG_NOTICE, "Add yun tasks failed\n");
-		xl_http_free(req);
 		return 0;
 	}
-	xl_http_free(req);
 	
 
 	memset(buf, '\0', 256);
-	create_add_yun_post_data(url, name, buf, 256);
+	//create_add_yun_post_data(url, name, buf, 256);
+	if (url)
+	{
+		char *en_url = xl_url_quote((char *)url);
+		char *en_name = xl_url_quote((char *)name);
+		snprintf(buf, sizeof(buf), "{\"urls\":[{\"id\":0, \"url\":\"%s\", \"name\":\"%s\"}]}", en_url, en_name);
+		s_free(en_url);
+		s_free(en_name);
+		s_free(name);
+	}
 	char p_url[256];
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=%s&sessionid=%s", userid, sessionid);
 	printf("p_url is %s \n", p_url);
 
 	req = xl_client_open_url(client, p_url, HTTP_POST, buf, DEFAULT_REFERER, &err);
-	response = xl_http_get_response(req);
-	printf("get response %s\n",  xl_http_get_response(req));
+	response = xl_http_get_body(req);
+	printf("get response %s\n",  xl_http_get_body(req));
 	if (xl_get_ret_from_response(response) == 0)
 	{
 		xl_http_free(req);
@@ -626,10 +732,12 @@ int xl_vod_add_video(XLVod *vod, const char* url)
 
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 {
-	char name[256];
-	from_url_get_name(vod, url, name, 256);
+	if (!url)
+		return NULL;
+	printf("url is :%s\n", url);
+	char *name = from_url_get_name(vod, url);
+
 	printf("get the name is %s\n", name);
-	return 0;
 	XLClient *client = vod -> client;
 	char get_url[1024];
 	char *userid, *sessionid;
@@ -650,12 +758,17 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	char *en_name = xl_url_quote((char *)name);
 
 	snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
-	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
+	s_free(name);
+	s_free(en_url);
+	s_free(en_name);
+//	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
 	XLHttp *req;
 	XLErrorCode err;
-	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
-	printf("get response %s\n",  xl_http_get_response(req));
+	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
+	printf("get response %s\n",  xl_http_get_body(req));
+
+	return NULL;
 
 //failed:
 //	xl_http_free(req);
