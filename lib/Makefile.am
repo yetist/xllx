@@ -21,7 +21,6 @@ libxllx_la_SOURCES = 	\
 	xl-vod.c	\
 	smemory.c 	\
 	md5.c 	\
-	parse.c 	\
 	base64.c	\
 	logger.c 
 

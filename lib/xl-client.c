@@ -471,6 +471,3 @@ XLCookies *xl_client_get_cookies(XLClient *client)
 		return NULL;
 	return client->cookies;
 }
-
-
-
