@@ -18,6 +18,7 @@ libxllx_la_SOURCES = 	\
 	xl-cookies.c 	\
 	xl-url.c 	\
 	xl-utils.c 	\
+	xl-vod.c	\
 	smemory.c 	\
 	md5.c 	\
 	parse.c 	\
