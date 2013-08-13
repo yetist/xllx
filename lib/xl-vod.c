@@ -56,7 +56,13 @@
 #include "logger.h"
 #include "md5.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 #define DEFAULT_REFERER "http://i.vod.xunlei.com/proxy.html?v2.82"
+#define MAX_BUFF_LEN 6291456 
 
 struct _XLVod
 {
@@ -127,6 +133,7 @@ int if_response_has_url(char *response, char *url)
 						{
 							xl_log(LOG_NOTICE, "url is %s\n", url);
 							s_free(un_url);
+							json_object_put(resp);
 							return 1;
 						}
 						s_free(un_url);
@@ -135,6 +142,7 @@ int if_response_has_url(char *response, char *url)
 			}
 		}
 	}
+	json_object_put(resp);
 	return 0;
 }
 
@@ -156,6 +164,8 @@ int xl_vod_has_video(XLVod *vod, const char* url)
 	if(if_response_has_url(response, url))
 	{
 		printf("has the video\n");
+		xl_http_free(req);
+		return 1;
 	}
 
 	xl_http_free(req);
@@ -558,6 +568,7 @@ char *xl_get_name_from_response(char *response)
 	if(	is_error(resp)) 
 	{
 		printf("got error as expected\n");
+		json_object_put(resp);
 		return NULL;
 	}
 
@@ -581,6 +592,7 @@ char *xl_get_name_from_response(char *response)
 			}
 		}
 	}
+	json_object_put(resp);
 	if (name)
 	{
 		return name;
@@ -599,6 +611,7 @@ int xl_get_ret_from_response(char *response)
 	if(	is_error(resp)) 
 	{
 		printf("got error as expected\n");
+		json_object_put(resp);
 		return -1;
 	}
 	resp_obj = json_object_object_get(resp, "resp"); 
@@ -612,11 +625,13 @@ int xl_get_ret_from_response(char *response)
 			if (rest == 0)
 			{
 				xl_log(LOG_NOTICE, "Add yun tasks successfully\n");
+			json_object_put(resp);
 				return 0;
 			}
 		}
 	}
 
+	json_object_put(resp);
 	return 1;
 }
 
@@ -667,11 +682,21 @@ char *from_url_get_name(XLVod *vod, const char* url)
 	return name;
 }
 
-int xl_vod_add_video(XLVod *vod, const char* url)
+int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 {
+	char *name;
+	if (name1 == NULL)
+	{
+		name = name1;
+	}
+	else
+	{
+		name = from_url_get_name(vod, url);
+	}
+
 	//	char *from_url_get_name(XLVod *vod, const char* url)
-	char *name = from_url_get_name(vod, url);
-		XLClient *client = vod -> client;
+	XLClient *client = vod -> client;
+
 
 	XLHttp *req;
 	XLErrorCode err;
@@ -713,7 +738,6 @@ int xl_vod_add_video(XLVod *vod, const char* url)
 		snprintf(buf, sizeof(buf), "{\"urls\":[{\"id\":0, \"url\":\"%s\", \"name\":\"%s\"}]}", en_url, en_name);
 		s_free(en_url);
 		s_free(en_name);
-		s_free(name);
 	}
 	char p_url[256];
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=%s&sessionid=%s", userid, sessionid);
@@ -748,6 +772,7 @@ char *get_download_url_from_response(char *response, VideoType type)
 	if(	is_error(resp)) 
 	{
 		printf("got error as expected\n");
+		json_object_put(resp);
 		return NULL;
 	}
 
@@ -774,8 +799,9 @@ char *get_download_url_from_response(char *response, VideoType type)
 			//	}
 		}
 		duration = json_object_object_get(resp_obj, "duration"); 
+
 		if (duration)
-			du = (long)json_object_get_int(duration)/1000/1000;
+			du = json_object_get_int64(duration)/1000/1000;
 		xl_log(LOG_NOTICE, "du %d\n", du);
 	}
 	if (url)
@@ -793,6 +819,8 @@ char *get_download_url_from_response(char *response, VideoType type)
 		xl_log(LOG_NOTICE, "download_url is %s\n", download_url);
 		s_free(url);
 	}
+	
+	json_object_put(resp);
 	return strdup(download_url);
 }
 
@@ -800,10 +828,17 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 {
 	if (!url)
 		return NULL;
+
+
 	printf("url is :%s\n", url);
 	char *name = from_url_get_name(vod, url);
 
 	printf("get the name is %s\n", name);
+	if (!xl_vod_has_video(vod, url))
+	{
+		//add
+		xl_vod_add_video(vod, url, name);
+	}
 	XLClient *client = vod -> client;
 	char get_url[1024];
 	char *userid, *sessionid;
@@ -836,3 +871,60 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	printf("get response %s\n",  xl_http_get_body(req));
 	return	get_download_url_from_response(response, type);
 }
+
+int check_file_existed(char *filename)
+{
+	struct stat st;
+	return (stat( filename, &st )==0 && S_ISREG(st.st_mode));
+}
+
+int get_file_size(char *filename)
+{
+	int file_len = 0;
+	int fd = 0;
+
+	fd = open(filename, O_RDONLY);
+	if(fd < 0)
+	{
+		perror("open");
+		return -1;
+	}
+
+	file_len = lseek(fd, 0, SEEK_END);
+	if(file_len < 0)
+	{
+		perror("lseek");
+		return -1;
+	}
+	close(fd);
+
+	return file_len;
+}
+
+int xl_vod_add_bt_video(XLVod *vod, char *btfilepath)
+{
+	if (!vod || !btfilepath)
+	{
+		return 0;
+	}
+		
+	if(!check_file_existed(btfilepath))
+	{
+		xl_log(LOG_NOTICE, "File Not Existed %s\n", btfilepath);
+		return 0;
+	}
+	xl_log(LOG_NOTICE, "File Existed %s\n", btfilepath);
+
+	//Check File Size
+	int file_size = 0;
+	if( (file_size = get_file_size(btfilepath)) >= MAX_BUFF_LEN)
+	{
+		xl_log(LOG_NOTICE, "File Size is too Big %s\n", btfilepath);
+		return 0;
+	}
+	xl_log(LOG_NOTICE, "File Size %d\n", file_size);
+
+	return 0;
+}
+
+

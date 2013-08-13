@@ -39,7 +39,8 @@ XLVod* xl_vod_new(XLClient *client);
 void   xl_vod_free(XLVod *vod);
 
 int xl_vod_has_video(XLVod *vod, const char* url);
-int xl_vod_add_video(XLVod *vod, const char* url);
+int xl_vod_add_video(XLVod *vod, const char* url, char *name);
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type);
+int xl_vod_add_bt_video(XLVod *vod, char *btfilepath);
 
 #endif /* __XL_VOD_H__ */
