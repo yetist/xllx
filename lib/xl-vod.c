@@ -481,7 +481,15 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	char *en_url = xl_url_quote((char *)url);
 	char *en_name = xl_url_quote((char *)name);
 
-	snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
+	if (strncmp(url, "bt://", 5) == 0)
+	{
+		int num = 8;
+		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s/%d&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, num, en_name, userid, sessionid, get_current_timestamp());
+	}
+	else
+	{
+		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
+	}
 	s_free(name);
 	s_free(en_url);
 	s_free(en_name);
@@ -501,13 +509,53 @@ int check_file_existed(char *filename)
 	return (stat( filename, &st )==0 && S_ISREG(st.st_mode));
 }
 
+char *xl_get_infohash_from_response(char *response)
+{
+	if (!response)
+		return NULL;
+	struct json_object *resp;
+	struct json_object *resp_obj;
+	resp = json_tokener_parse(response);
+	char *hash;
+
+	if( is_error(resp))
+	{
+		printf("got error as expected\n");
+		json_object_put(resp);
+		return NULL;
+	}
+	struct json_object *ret_obj = json_object_object_get(resp, "ret");
+	if (ret_obj)
+	{
+		char *rest = json_object_get_string(ret_obj);
+		if (atoi(rest) != 0)
+		{
+			xl_log(LOG_NOTICE, "get info hash failed\n");
+			json_object_put(resp);
+			return NULL;
+		}
+	}
+
+	resp_obj = json_object_object_get(resp, "infohash");
+	if (resp_obj)
+	{
+		hash = strdup(json_object_get_string(resp_obj));
+		printf ("resp_obj: %s\n", json_object_to_json_string(resp_obj));
+	}
+
+	json_object_put(resp);
+
+	return hash;
+}
+
+
 int xl_vod_add_bt_video(XLVod *vod, const char *path)
 {
 	if (!vod || !path)
 	{
 		return -1;
 	}
-		
+
 	if(!check_file_existed(path))
 	{
 		xl_log(LOG_NOTICE, "File Not Existed %s\n", path);
@@ -528,8 +576,23 @@ int xl_vod_add_bt_video(XLVod *vod, const char *path)
 	char url[1024];
 	XLErrorCode err;
 	XLHttp *http;
+	memset(url, '\0', sizeof(url));
 
 	snprintf(url, sizeof(url), "http://dynamic.vod.lixian.xunlei.com/interface/upload_bt?from=vlist&t=%ld", get_current_timestamp());
 	http = xl_client_upload_file(vod->client, url, "Filedata", path, &err);
+
+	char *response = xl_http_get_body(http);
+	char *hash = xl_get_infohash_from_response(response);
+	char bt_url[256];
+	memset(bt_url, '\0', sizeof(bt_url));
+	if (hash && strcmp(hash, ""))
+	{
+		snprintf(bt_url, sizeof(bt_url), "bt://%s", hash);
+		printf("Bt url: %s\n", bt_url);
+		xl_vod_get_video_url(vod, bt_url, VIDEO_480P);
+	}
+
+	s_free(hash);
+
 	return 0;
 }
