@@ -20,7 +20,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
+       #include <sys/types.h>
+       #include <sys/stat.h>
+       #include <unistd.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include <sys/time.h>
 #include <regex.h>
@@ -78,4 +82,16 @@ int re_match(const char* pattern, const char* str)
     }
     regfree(&re);
     return 0;
+}
+
+int get_file_size(const char* path, size_t *size)
+{
+	struct stat st;
+	if (stat(path, &st) != 0)
+	{
+		*size = 0;
+		return -1;
+	}
+	*size = (size_t) st.st_size;
+	return 0;
 }

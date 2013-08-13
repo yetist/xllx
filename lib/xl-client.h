@@ -36,6 +36,7 @@ void       xl_client_set_verify_image_path(XLClient *client, const char *path);
 void       xl_client_set_verify_code(XLClient *client, const char *vcode);
 void       xl_client_free(XLClient *client);
 XLHttp*    xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
+XLHttp*    xl_client_upload_file(XLClient *client, const char* url, const char *field, const char *path, XLErrorCode *err);
 XLCookies* xl_client_get_cookies(XLClient *client);
 
 

@@ -463,6 +463,34 @@ void xl_client_free(XLClient *client)
 	s_free(client);
 }
 
+XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *field, const char *path, XLErrorCode *err)
+{
+	int ret;
+	XLHttp *http;
+	char *cookies;
+	http = xl_http_create_default(url, err);
+	if (!http) {
+		goto failed;
+	}
+    xl_log(LOG_NOTICE, "URL[%s]\n", url);
+    cookies = xl_cookies_get_string_line(client->cookies);
+    if (cookies != NULL) {
+		xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
+		xl_http_set_header(http, "Cookie", cookies);
+        s_free(cookies);
+    }
+	if ((ret = xl_http_upload_file(http, field, path)) != 0) {
+		*err = XL_ERROR_NETWORK_ERROR;
+		goto failed;
+	}
+	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(http), xl_http_get_response(http));
+	client_show_cookie_names(http);
+	return http;
+failed:
+	xl_http_free(http);
+	return NULL;
+}
+
 XLCookies *xl_client_get_cookies(XLClient *client)
 {
 	if (!client)

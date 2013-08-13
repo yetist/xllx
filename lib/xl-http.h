@@ -41,6 +41,7 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err);
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body);
 int xl_http_open_async(XLHttp *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
+int xl_http_upload_file(XLHttp *request, const char *field, const char *path);
 
 void xl_http_set_header(XLHttp *request, const char *name, const char *value);
 

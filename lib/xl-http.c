@@ -19,6 +19,11 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
 #include <zlib.h>
 #include <ev.h>
@@ -26,12 +31,14 @@
 #include "smemory.h"
 #include "xllx.h"
 #include "xl-http.h"
+#include "xl-utils.h"
 #include "logger.h"
 
 #define XL_HTTP_USER_AGENT "User-Agent: Mozilla/5.0 \
 	(X11; Linux x86_64; rv:10.0) Gecko/20100101 Firefox/10.0"
 
 #define CHUNK 1024 * 1024
+#define UPLOAD_FILE_MAX_SIZE 6291456
 
 typedef struct _AsyncWatchData AsyncWatchData;
 
@@ -59,6 +66,7 @@ static char *ungzip(const char *source, int len, int *total);
 static void *xl_async_thread(void* data);
 static void ev_io_come(EV_P_ ev_io* w,int revent);
 static void  xl_http_set_default_header(XLHttp *request);
+static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len);
 
 XLHttp *xl_http_new(const char *uri)
 {
@@ -113,6 +121,67 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body)
 {
+	if (body != NULL)
+		return http_open(request, method, body, strlen(body));
+	else
+		return http_open(request, method, NULL, 0);
+}
+
+int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
+{
+	int len;
+	char msg[6300000];
+	size_t have_write_bytes;
+	char buf[1024];
+    char *boundary_ = "----WebKitFormBoundaryk5nH7APtIbShxvqE";
+	char *boundary;
+
+	len = get_file_size(path, &have_write_bytes);
+	if (len != 0 || have_write_bytes > UPLOAD_FILE_MAX_SIZE)
+	{
+		return -1;
+	}
+	have_write_bytes = len = 0;
+
+	//set header
+	snprintf(buf, sizeof(buf), "multipart/form-data;boundary=%s", boundary_);
+	xl_http_set_header(request, "Content-Type", buf);
+
+	//char *filename = get_basename(path);
+
+	s_asprintf(&boundary, "--%s", boundary_);
+	len = snprintf(buf, sizeof(buf), "%s\r\n"
+	"Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
+	"Content-Type: application/octet-stream\r\n\r\n", boundary, field, path);
+
+	memcpy(msg + have_write_bytes, buf, len);
+	have_write_bytes += len;
+
+	ssize_t count;
+	int fd;
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		goto failed;
+	while ((count = read(fd, buf, sizeof(buf))) != 0)
+	{
+		memcpy(msg + have_write_bytes, buf, count);
+		have_write_bytes += count;
+	}
+	close(fd);
+
+	len = snprintf(buf, sizeof(buf), "\r\n%s--\r\n", boundary);
+	memcpy(msg + have_write_bytes, buf, len);
+	have_write_bytes += len;
+
+	s_free(boundary);
+	return http_open(request, HTTP_POST, msg, have_write_bytes);
+failed:
+	s_free(boundary);
+	return -1;
+}
+
+static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len)
+{
 	if (!request->req)
 		return -1;
 
@@ -134,7 +203,7 @@ int xl_http_open(XLHttp *request, HttpMethod method, char *body)
 
 	/* For POST method, set http body */
 	if (method == HTTP_POST && body) {
-		ghttp_set_body(request->req, body, strlen(body));
+		ghttp_set_body(request->req, body, body_len);
 	}
 
 	if (ghttp_prepare(request->req)) {
