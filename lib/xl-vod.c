@@ -479,7 +479,15 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	char *en_url = xl_url_quote((char *)url);
 	char *en_name = xl_url_quote((char *)name);
 
-	snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
+	if (strncmp(url, "bt://", 5) == 0)
+	{
+		int num = 8;
+		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s/%d&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, num, en_name, userid, sessionid, get_current_timestamp());
+	}
+	else
+	{
+		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, en_name, userid, sessionid, get_current_timestamp());
+	}
 	s_free(name);
 	s_free(en_url);
 	s_free(en_name);
@@ -548,7 +556,8 @@ int xl_vod_add_bt_video(XLVod *vod, const char *path)
 
 	printf("bthash=%s\n", bthash);
 //	int ret = xl_vod_add_video(vod, bthash, NULL);
-//	s_free(bthash);
-//	printf("ret=%d\n");
+	xl_vod_get_video_url(vod, bthash, VIDEO_480P);
+	s_free(bthash);
+	printf("ret=%d\n");
 	return 0;
 }

@@ -126,7 +126,7 @@ int do_login(XLClient *client, XLErrorCode *err)
 	int status_code = xl_http_get_status(req);
 	if (status_code != 302)
 	{
-		printf("[----html----\n%s\n----html----]\n", xl_http_get_response(req));
+		//printf("[----html----\n%s\n----html----]\n", xl_http_get_response(req));
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
@@ -328,7 +328,7 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(req), xl_http_get_response(req));
+	//printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(req), xl_http_get_response(req));
 	client_show_cookie_names(req);
 	return req;
 failed:
@@ -483,7 +483,7 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(http), xl_http_get_response(http));
+	//printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(http), xl_http_get_response(http));
 	client_show_cookie_names(http);
 	return http;
 failed:

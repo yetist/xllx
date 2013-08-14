@@ -20,8 +20,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
+#include <json.h>
 #include "xl-json.h"
 #include "smemory.h"
+#include "logger.h"
 
 char *json_parse_bt_hash(const char* json_str)
 {
@@ -29,20 +31,39 @@ char *json_parse_bt_hash(const char* json_str)
 	 * json_str is {"result":"0","ret":"0","infohash":"004F50950256E66F128D528D0773FDEFBC298CCE"}
 	 * return "bt://${infohash}"
 	 */
-	char *name = NULL;
+	char *bthash= NULL;
 	struct json_object *jsobj;
+	struct json_object *jo_ret;
 	struct json_object *jo_infohash;
 
-	jsobj = json_tokener_parse(json_str);
-	if (!jsobj)
+	if (!json_str)
 		return NULL;
+
+	jsobj = json_tokener_parse(json_str);
+	if( is_error(jsobj) || !jsobj)
+	{
+		printf("got error as expected\n");
+		json_object_put(jsobj);
+		return NULL;
+	}
+	jo_ret = json_object_object_get(jsobj, "ret");
+	if (jo_ret)
+	{
+		char *ret = json_object_get_string(jo_ret);
+		if (atoi(ret) != 0)
+		{
+			xl_log(LOG_NOTICE, "get info hash failed\n");
+			json_object_put(ret);
+			goto failed;
+		}
+	}
 	jo_infohash = json_object_object_get(jsobj, "infohash"); 
 	if (jo_infohash)
 	{
-					s_asprintf(&name, "bt://%s", json_object_get_string(jo_infohash));
+					s_asprintf(&bthash, "bt://%s", json_object_get_string(jo_infohash));
 					json_object_put(jo_infohash);
 	}
+failed:
 	json_object_put(jsobj);
-
-	return name;
+	return bthash;
 }
