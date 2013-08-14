@@ -35,7 +35,6 @@
 #include "smemory.h"
 #include "logger.h"
 #include "md5.h"
-#include "xl-parse.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -72,30 +71,40 @@ void xl_vod_free(XLVod *vod)
 	s_free(vod);
 }
 
-int xl_vod_has_video(XLVod *vod, const char* url)
+char* vod_list_all_videos(XLVod *vod)
 {
-	//http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=1376293731064
-	char get[512];
-	XLClient *client = vod -> client;
+	char url[512];
 	XLHttp *req;
 	XLErrorCode err;
+	char *list;
 
-	snprintf(get, sizeof(get) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
-	xl_log(LOG_NOTICE, "get url is %s\n", get);
-
-	req = xl_client_open_url(client, get, HTTP_GET, NULL, NULL, &err);
-
+	snprintf(url, sizeof(url) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
+	req = xl_client_open_url(vod->client, url, HTTP_GET, NULL, NULL, &err);
+	if (xl_http_get_status(req) != 200)
+	{
+		goto failed;
+	}
 	char *response = xl_http_get_body(req);
-	printf("here the response is %s\n", response);
-	if(if_response_has_url(response, url))
+	list = s_strdup(response);
+	xl_http_free(req);
+	return list;
+failed:
+	xl_http_free(req);
+	return NULL;
+}
+
+int xl_vod_has_video(XLVod *vod, const char* url)
+{
+	char* list = vod_list_all_videos(vod);
+	if (list == NULL)
+		return 0;
+	if(json_parse_has_url(list, url) == 0)
 	{
 		printf("has the video\n");
-		xl_http_free(req);
+		s_free(list);
 		return 1;
 	}
-
-	xl_http_free(req);
-
+	s_free(list);
 	return 0;
 }
 
@@ -142,7 +151,7 @@ char *from_url_get_name(XLVod *vod, const char* url)
 
 	char *response = xl_http_get_body(req);
 	printf("here the response is %s\n", response);
-	char *name = xl_get_name_from_response(response);
+	char *name = json_parse_get_name(response);
 	return name;
 }
 
@@ -286,14 +295,34 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	if(strlen(get_url))
 	{
 		//req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
-		req = xl_client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
+		req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
 		char *response =  xl_http_get_body(req);
 		printf("get response %s\n",  xl_http_get_body(req));
 
 		return	get_download_url_from_response(response, type, vtype);
 	}
 		
-	return NULL;	
+	return NULL;
+}
+
+VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url)
+{
+	//TODO: 完成视频状态检测，以保证后续播放能正常工作。
+	char *list;
+
+	list = vod_list_all_videos(vod);
+	//get_url_hash(list, url);
+	
+	/*
+	 * url is: http://i.vod.xunlei.com/req_progress_query?&t=1376470919270
+	 * post is {"req":{"url_hash_list":["10582384012816867477"],"platform":0}}
+	 * or: {"req":{"url_hash_list":["7561787828864183224","6536430402090067275","13448276460108685446","10653796262410566949","9918101846291549545","7330933771486410590"],"platform":0}}
+	 * return is {"resp": {"progress_info_list": [{"progress": "5_10000", "url_hash": "10582384012816867477"}], "userid": "288543553", "ret": 0}}
+	 * or: {"resp": {"progress_info_list": [{"progress": "5_10000", "url_hash": "7561787828864183224"}, {"progress": "5_10000", "url_hash": "6536430402090067275"}, {"progress": "5_10000", "url_hash": "13448276460108685446"}, {"progress": "5_10000", "url_hash": "10653796262410566949"}, {"progress": "5_10000", "url_hash": "9918101846291549545"}, {"progress": "5_10000", "url_hash": "7330933771486410590"}], "userid": "288543553", "ret": 0}}
+	 *
+	 */
+	s_free(list);
+	return VIDEO_READY;
 }
 
 int check_file_existed(const char *filename)

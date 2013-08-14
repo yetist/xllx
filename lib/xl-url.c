@@ -49,12 +49,12 @@ static char to_hex(char code)
  *
  * Return value: the url-encoded version of str
  **/
-char* xl_url_quote(char *str)
+char* xl_url_quote(const char *str)
 {
     if (!str)
         return NULL;
     
-    char *pstr = str, *buf = malloc(strlen(str) * 3 + 1), *pbuf = buf;
+    char *pstr = (char*)str, *buf = malloc(strlen(str) * 3 + 1), *pbuf = buf;
     while (*pstr) {
         if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~') 
             *pbuf++ = *pstr;
@@ -73,12 +73,12 @@ char* xl_url_quote(char *str)
  * 
  * @return A url-decoded version of str
  */
-char* xl_url_unquote(char *str)
+char* xl_url_unquote(const char *str)
 {
     if (!str) {
         return NULL;
     }
-    char *pstr = str, *buf = malloc(strlen(str) + 1), *pbuf = buf;
+    char *pstr = (char*)str, *buf = malloc(strlen(str) + 1), *pbuf = buf;
     while (*pstr) {
         if (*pstr == '%') {
             if (pstr[1] && pstr[2]) {

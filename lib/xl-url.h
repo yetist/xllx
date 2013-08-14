@@ -23,8 +23,8 @@
 #ifndef __XL_URL_H__ 
 #define __XL_URL_H__  1
 
-char* xl_url_quote(char *str);
-char* xl_url_unquote(char *str);
+char* xl_url_quote(const char *str);
+char* xl_url_unquote(const char *str);
 char* xl_url_thunder_encode(const char* uri);
 char* xl_url_thunder_decode(const char* euri);
 char* xl_url_qqdl_encode(const char* uri);

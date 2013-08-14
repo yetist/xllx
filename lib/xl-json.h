@@ -22,9 +22,19 @@
 
 #ifndef __XL_JSON_H__ 
 #define __XL_JSON_H__  1
+#include "xl-vod.h"
 
 char *json_parse_bt_hash(const char* json_str);
 int json_parse_bt_index(const char* json_str);
 int json_parse_get_return_code(const char* json_str);
+int json_parse_has_url(const char *json_str, const char *url);
+char *json_parse_get_name(const char *json_str);
+
+//int if_response_has_url(char *response, const char *url);
+//char *xl_get_name_from_response(char *response);
+//int xl_get_ret_from_response(char *response);
+char *get_download_url_from_response(char *response, VideoType type, char *vtype);
+//int xl_get_index_from_response(char *response);
+//char *xl_get_infohash_from_response(char *response);
 
 #endif /* __XL_JSON_H__ */
