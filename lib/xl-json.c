@@ -21,11 +21,35 @@
  * */
 
 #include <string.h>
+       #include <stdlib.h>
 #include <json.h>
+#include <bits.h>
+#include <json_tokener.h>
 #include "xl-json.h"
 #include "smemory.h"
 #include "logger.h"
 #include "xl-url.h"
+
+struct _VideoItem
+{
+	char *gcid;	/* maybe empty. */
+	char *url_hash;
+	//gcidlist; /* maybe not exist. */
+	char *vod_info;
+	char *cid; /* maybe empty. */
+	char *url; /* maybe not exist. */
+	char *file_name;
+	char *userid;
+	long ordertime;
+	char *datafrom;
+	int platform;
+	char *src_url;
+	size_t file_size;
+	int64_t duration;
+	char *playtime;
+	int playflag;
+	char *createtime;
+};
 
 char *json_parse_bt_hash(const char* json_str)
 {
@@ -70,7 +94,7 @@ failed:
 int json_parse_bt_index(const char* json_str)
 {
 	/*
-	 * json_str is {"resp": {"userid": "288543553", "ret": 0, "subfile_list": [{"index": 0, "url_hash": "10582384012816867477", "name": "aaa58256146@\u7fa4\u9b54\u8272\u821e@(AVopen)\u611b\u7530\u53cb,\u84bc\u4e95,\u7a57\u82b1,\u5c0f\u6fa4\u746a\u5229\u4e9e,\u9ebb\u7f8e,\u9752\u6728~\u4f86\u81eaS1\u7684\u885d\u64ca.rmvb", "cid": null, "gcid": null, "file_size": 0, "duration": 0}], "main_task_url_hash": "9918101846291549545", "info_hash": "004F50950256E66F128D528D0773FDEFBC298CCE", "record_num": 1}}
+	 * json_str is {"resp": {"userid": "111111111", "ret": 0, "subfile_list": [{"index": 0, "url_hash": "10582384012816867477", "name": "aaa58256146@\u7fa4\u9b54\u8272\u821e@(AVopen)\u611b\u7530\u53cb,\u84bc\u4e95,\u7a57\u82b1,\u5c0f\u6fa4\u746a\u5229\u4e9e,\u9ebb\u7f8e,\u9752\u6728~\u4f86\u81eaS1\u7684\u885d\u64ca.rmvb", "cid": null, "gcid": null, "file_size": 0, "duration": 0}], "main_task_url_hash": "9918101846291549545", "info_hash": "004F50950256E66F128D528D0773FDEFBC298CCE", "record_num": 1}}
 	 * return "${index}"
 	 */
 	int index = -1;
@@ -283,6 +307,12 @@ int json_parse_has_url(const char *json_str, const char *url)
 
 char *json_parse_get_name(const char *json_str)
 {
+	/*
+	 *
+	 * json_str is {"resp": {"res": [{"url": "thunder%3A%2F%2FQUFodHRwOi...12Ylpa", "result": 0, "id": 0, "name": "\u4e2d\u56fd\u5408\u4f19\u4ebaBD.rmvb"}], "ret": 0}}
+	 * return resp->res->0->${name}
+	 *
+	 */
 	char *name = NULL;
 	struct json_object *jsobj;
 	struct json_object *jo_resp;
@@ -326,110 +356,152 @@ char *json_parse_get_name(const char *json_str)
 	return name;
 }
 
-char *get_download_url_from_response(char *response, VideoType type, char *vtype)
+char *json_parse_get_download_url(const char *json_str, VideoType type)
 {
-	struct json_object *resp;
-	struct json_object *resp_obj;
-	struct json_object *res_array;
-	struct json_object *obj;
-	struct json_object *duration;
-	char *url = NULL;
-	char download_url[512];
-	int du = 0;
+	/*
+	 *
+	 * XL_CLOUD_FX_INSTANCEqueryBack({
+     * "resp": {
+     *     "status": 0,
+     *     "url_hash": "288301201412044132",
+     *     "trans_wait": -1,
+     *     "userid": "288543553",
+     *     "ret": 0,
+     *     "src_info": {
+     *         "file_name": "梦幻天堂·龙网(killman.net).720p.大话西游之大圣娶亲",
+     *         "cid": "",
+     *         "file_size": "0",
+     *         "gcid": "820EA640D99A37E0AC301CC8BA01E00302622889"
+     *     },
+     *     "vodinfo_list": [{
+     *         "vod_urls": [],
+     *         "spec_id": 225536,
+     *         "vod_url": "http://124.95.174.190/download?dt=16&g=E8DCDA6F78065905114B0E619B0F334834ADA576&t=2&ui=288543553&s=471222714&v_type=-1&scn=c13&it=1376504026&p=0&cc=9042386459858147283&n=0A4A0F9076D805696CBF854C89DE006574FAC61AD5C01E2EE5774FC5486D86A5BF3550950349E5E5A4740DB14415C6B6E4695A2DE7F06E0000",
+     *         "has_subtitle": 0
+     *     }, {
+     *         "vod_urls": [],
+     *         "spec_id": 282880,
+     *         "vod_url": "http://124.95.174.190/download?dt=16&g=FFD69470DFE198EC443BB51D054995F74F646A71&t=2&ui=288543553&s=790926882&v_type=-1&scn=c13&it=1376504026&p=0&cc=16893651737588826745&n=0A4A0F9076D805696CBF854C89DE006574FAC61AD5C01E2EE5774FC5486D86A5BF3550950349E5E5A4740DB14415C6B6E4695A2DE7F06E0000",
+     *         "has_subtitle": 0
+     *     }, {
+     *         "vod_urls": [],
+     *         "spec_id": 356608,
+     *         "vod_url": "http://124.95.174.190/download?dt=16&g=5BB401588FA5978DB9EA90DC205922ADFAF9EFE5&t=2&ui=288543553&s=1273308635&v_type=-1&scn=c13&it=1376504026&p=0&cc=117367614423376147&n=0A4A0F9076D805696CBF854C89DE006574FAC61AD5C01E2EE5774FC5486D86A5BF3550950349E5E5A4740DB14415C6B6E4695A2DE7F06E0000",
+     *         "has_subtitle": 0
+     *     }],
+     *     "duration": 5984172000,
+     *     "vod_permit": {
+     *         "msg": "OK",
+     *         "ret": 0
+     *     },
+     *     "error_msg": ""
+     * }
+	 * })
+	 */
 
-	memset(download_url, '\0', sizeof(download_url));
+	int spec_id;
+	struct json_object *jsobj;
+	struct json_object *jo_resp;
+	struct json_object *jo_vodinfo_list;
+	struct json_object *jo_vodinfo_list_n;
+	struct json_object *jo_spec_id;
+	struct json_object *jo_vod_url;
+	struct json_object *jo_duration;
+	char *vod_url = NULL;
+	int64_t duration;
+	char *download_url = NULL;
 
-	resp = json_tokener_parse(response);
-	if (!resp)
-		return NULL;
-	if(	is_error(resp)) 
+	if (!json_str)
+		return download_url;
+
+	jsobj = json_tokener_parse(json_str);
+	if( is_error(jsobj) || !jsobj)
 	{
-		printf("got error as expected\n");
-		json_object_put(resp);
-		return NULL;
+		json_object_put(jsobj);
+		return download_url;
 	}
-
-	resp_obj = json_object_object_get(resp, "resp"); 
-	if (resp_obj)
+	jo_resp = json_object_object_get(jsobj, "resp");
+	if (jo_resp)
 	{
-		res_array = json_object_object_get(resp_obj, "vodinfo_list"); 
-		if (res_array)
+		//FIXME: trans_wait -1 is not ready.
+		jo_vodinfo_list = json_object_object_get(jo_resp, "vodinfo_list"); 
+		if (jo_vodinfo_list)
 		{
 			int i;
-			for (i = 0; i < json_object_array_length(res_array); i++)
+			for (i = 0; i < json_object_array_length(jo_vodinfo_list); i++)
 			{
-				obj = json_object_array_get_idx(res_array, i);
-				if (obj)
+				jo_vodinfo_list_n = json_object_array_get_idx(jo_vodinfo_list, i);
+				if (jo_vodinfo_list_n)
 				{
-					
-					struct json_object *spec = json_object_object_get(obj, "spec_id"); 
-					if (spec)
+					jo_spec_id = json_object_object_get(jo_vodinfo_list_n, "spec_id"); 
+					if (jo_spec_id)
 					{
-						int spec_id = json_object_get_int(spec);
-						xl_log(LOG_NOTICE, "spec_id is %d\n", spec_id);
-						struct json_object *n = json_object_object_get(obj, "vod_url"); 
-						if (type == 0 && spec_id == 225536)
+						spec_id = json_object_get_int(jo_spec_id);
+						json_object_put(jo_spec_id);
+					}
+					if (type == VIDEO_480P && spec_id == 225536)
+					{
+						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
+						if (jo_vod_url)
 						{
-							if (n)
-							{
-								const char *vod_url = json_object_get_string(n);
-								url = strdup(vod_url);
-								xl_log(LOG_NOTICE, "url is %s\n", url);
-								break;
-							}
+							if (vod_url != NULL)
+								s_free(vod_url);
+							vod_url = s_strdup(json_object_get_string(jo_vod_url));
+							json_object_put(jo_vod_url);
 						}
-						else if(type == 1 && spec_id == 282880)
+						json_object_put(jo_vodinfo_list_n);
+						break;
+					} else if (type == VIDEO_720P && spec_id == 282880)
+					{
+						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
+						if (jo_vod_url)
 						{
-							const char *vod_url = json_object_get_string(n);
-							url = strdup(vod_url);
-							xl_log(LOG_NOTICE, "url is %s\n", url);
-							break;
+							if (vod_url != NULL)
+								s_free(vod_url);
+							vod_url = s_strdup(json_object_get_string(jo_vod_url));
+							json_object_put(jo_vod_url);
 						}
-						else if(type == 2 && spec_id == 356608)
+						json_object_put(jo_vodinfo_list_n);
+						break;
+					} else if (type == VIDEO_1080P && spec_id == 356608)
+					{
+						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
+						if (jo_vod_url)
 						{
-							const char *vod_url = json_object_get_string(n);
-							url = strdup(vod_url);
-							xl_log(LOG_NOTICE, "url is %s\n", url);
-							break;
+							if (vod_url != NULL)
+								s_free(vod_url);
+							vod_url = s_strdup(json_object_get_string(jo_vod_url));
+							json_object_put(jo_vod_url);
 						}
+						json_object_put(jo_vodinfo_list_n);
+						break;
 					}
 				}
 			}
+			json_object_put(jo_vodinfo_list);
 		}
-		duration = json_object_object_get(resp_obj, "duration"); 
-
-		if (duration)
-			du = json_object_get_int64(duration)/1000/1000;
-		xl_log(LOG_NOTICE, "du %d\n", du);
+		jo_duration = json_object_object_get(jo_resp, "duration"); 
+		if (jo_duration) {
+			duration = json_object_get_int64(jo_duration)/1000/1000;
+		}
+		json_object_put(jo_resp);
 	}
-	if (url)
+	json_object_put(jsobj);
+	if (vod_url != NULL)
 	{
-		char *substr = strstr(url, "s=");
+		char *substr = strstr(vod_url, "s=");
 		char num[20];
 		int i =0;
-		for (*(substr+2); *(substr+2 + i) != '&'; i++)
+		substr += 2;
+		while (substr && *substr != '&')
 		{
-			num[i] = *(substr+2 + i);
+			num[i] = *substr;
+			i++;
+			substr++;
 		}
 		num[i] = '\0';
-		xl_log(LOG_NOTICE, "substr is %s, num is %s\n", substr, num);
-		//thunder and bt
-		//snprintf(download_url, sizeof(download_url), "%s&start=0&end=%s&type=normal&du=%d", url, num, du);
-
-		//megnet
-		snprintf(download_url, sizeof(download_url), "%s&start=0&end=%s&flash_meta=0&type=%s&du=%d", url, num,vtype, du);
-
-		xl_log(LOG_NOTICE, "download_url is %s\n", download_url);
-		s_free(url);
+		s_asprintf(&download_url, "%s&start=0&end=%s&flash_meta=0&type=loadmetadata&du=%d", vod_url, num, duration);
+		s_free(vod_url);
 	}
-	else
-	{
-		xl_log(LOG_NOTICE, "NO this videotype\n");
-	}
-	
-	json_object_put(resp);
-	if (strlen(download_url))
-		return strdup(download_url);
-	else
-		return NULL;
+	return download_url;
 }

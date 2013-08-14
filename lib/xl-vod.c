@@ -299,7 +299,8 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 		char *response =  xl_http_get_body(req);
 		printf("get response %s\n",  xl_http_get_body(req));
 
-		return	get_download_url_from_response(response, type, vtype);
+		//return	get_download_url_from_response(response, type, vtype);
+		return json_parse_get_download_url(response, type);
 	}
 		
 	return NULL;
@@ -415,9 +416,12 @@ int xl_vod_add_bt_video(XLVod *vod, const char *path)
 		return -1;
 	printf("bt_hash=%s, bt_index=%s\n", bt_hash, bt_index);
 //	int ret = xl_vod_add_video(vod, bthash, NULL);
+	char *media_url;
+	media_url = xl_vod_get_video_url(vod, bt_hash, VIDEO_480P);
 	//xl_vod_get_video_url(vod, bthash, VIDEO_480P);
 	s_free(bt_hash);
 	s_free(bt_index);
-	//printf("ret=%d\n");
+	s_free(media_url);
+	printf("ret=%s\n", media_url);
 	return 0;
 }

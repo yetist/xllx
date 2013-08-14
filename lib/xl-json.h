@@ -33,7 +33,8 @@ char *json_parse_get_name(const char *json_str);
 //int if_response_has_url(char *response, const char *url);
 //char *xl_get_name_from_response(char *response);
 //int xl_get_ret_from_response(char *response);
-char *get_download_url_from_response(char *response, VideoType type, char *vtype);
+//char *get_download_url_from_response(const char *json_str, VideoType type, char *vtype);
+char *json_parse_get_download_url(const char *json_str, VideoType type);
 //int xl_get_index_from_response(char *response);
 //char *xl_get_infohash_from_response(char *response);
 

@@ -90,7 +90,7 @@ AM_CONDITIONAL(ENABLE_DEBUG, test x"$enable_debug" = "xyes")
 dnl *********************
 dnl *** JSON checks ***
 dnl *********************
-JSON_REQUIRED_VERSION=0.9
+JSON_REQUIRED_VERSION=0.11
 PKG_CHECK_MODULES(JSON, json >= $JSON_REQUIRED_VERSION)
 AC_SUBST(JSON_CFLAGS)
 AC_SUBST(JSON_LIBS)
