@@ -230,6 +230,7 @@ static int client_has_logged_in(XLClient *client)
 	s_free(userid);
 	xl_cookies_set_pagenum(client->cookies, "1");
 	req = client_open_url(client, url, HTTP_GET, NULL, NULL, &err);
+	//req = client_open_url(client, "http://vod.xunlei.com/list.html?from=lxweb#list=all&p=1", HTTP_GET, NULL, NULL, &err);
 	xl_cookies_set_pagenum(client->cookies, DEFAULT_PAGENUM);
 	if (req == NULL){
 		goto failed;
@@ -328,7 +329,7 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	//printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(req), xl_http_get_response(req));
+	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(req), xl_http_get_response(req));
 	client_show_cookie_names(req);
 	return req;
 failed:
@@ -483,7 +484,7 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	//printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(http), xl_http_get_response(http));
+	printf("[----html(%d)----\n%s\n----html----]\n", xl_http_get_status(http), xl_http_get_response(http));
 	client_show_cookie_names(http);
 	return http;
 failed:

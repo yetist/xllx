@@ -52,6 +52,7 @@
 #include "xl-http.h"
 #include "xl-url.h"
 #include "xl-utils.h"
+#include "xl-json.h"
 #include "smemory.h"
 #include "logger.h"
 #include "md5.h"
@@ -223,41 +224,6 @@ char *xl_get_name_from_response(char *response)
 	return NULL;
 }
 
-int xl_get_ret_from_response(char *response)
-{
-	if (!response)
-		return -1;
-	struct json_object *resp;
-	struct json_object *resp_obj;
-	resp = json_tokener_parse(response);
-
-	if(	is_error(resp)) 
-	{
-		printf("got error as expected\n");
-		json_object_put(resp);
-		return -1;
-	}
-	resp_obj = json_object_object_get(resp, "resp"); 
-	if (resp_obj)
-	{
-		printf ("resp_obj: %s\n", json_object_to_json_string(resp_obj));
-		struct json_object *ret_obj = json_object_object_get(resp, "ret");
-		if (ret_obj)
-		{
-			int rest = json_object_get_int(ret_obj);
-			if (rest == 0)
-			{
-				xl_log(LOG_NOTICE, "Add yun tasks successfully\n");
-			json_object_put(resp);
-				return 0;
-			}
-		}
-	}
-
-	json_object_put(resp);
-	return 1;
-}
-
 char *from_url_get_name(XLVod *vod, const char* url)
 {
 	if (!url)
@@ -368,7 +334,7 @@ int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 	req = xl_client_open_url(client, p_url, HTTP_POST, buf, DEFAULT_REFERER, &err);
 	response = xl_http_get_body(req);
 	printf("get response %s\n",  xl_http_get_body(req));
-	if (xl_get_ret_from_response(response) == 0)
+	if (json_parse_get_return_code(response) == 0)
 	{
 		xl_http_free(req);
 		return 1;
@@ -379,6 +345,14 @@ int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 
 char *get_download_url_from_response(char *response, VideoType type)
 {
+	/*
+	 * XL_CLOUD_FX_INSTANCEqueryBack({"resp": {"status": 1, "url_hash": "10582384012816867477", "trans_wait": -1, "userid": "288543553", "ret": 5, "src_info": {"file_name": "aaa58256146@群魔色舞@(AVopen)愛田友,蒼井,穗花,小澤瑪利亞,麻美,青木~來自S1的衝擊", "cid": "", "file_size": "0", "gcid": ""}, "vodinfo_list": [], "duration": 0, "vod_permit": {"msg": "OK", "ret": 0}, "error_msg": ""}})
+	 *
+	 * note:
+	 * 如果 trans_wait=-1, 说明该资源转码需要较长时间，需要耐心等待。转码的进度可以通过
+	 * http://i.vod.xunlei.com/req_progress_query?&t=1376447379259 进行查询。
+	 */
+
 	struct json_object *resp;
 	struct json_object *resp_obj;
 	struct json_object *res_array;
@@ -501,13 +475,13 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	return	get_download_url_from_response(response, type);
 }
 
-int check_file_existed(char *filename)
+int check_file_existed(const char *filename)
 {
 	struct stat st;
-	return (stat( filename, &st )==0 && S_ISREG(st.st_mode));
+	return (stat(filename, &st )==0 && S_ISREG(st.st_mode));
 }
 
-char* upload_bt_file(XLVod *vod, const char *path)
+char* vod_upload_bt_file(XLVod *vod, const char *path)
 {
 	size_t file_size;
 	char url[1024];
@@ -547,17 +521,53 @@ failed:
 	return NULL;
 }
 
+char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
+{
+	int i;
+	char *index = NULL;
+	char *body;
+	char url[1024];
+	XLHttp *http;
+	XLErrorCode err;
+
+	snprintf(url, sizeof(url), "http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/30/req_offset/0", bt_hash+5);
+	http = xl_client_open_url(vod->client, url, HTTP_GET, NULL, NULL, &err);
+	if (http == NULL){
+		goto failed;
+	}
+	if (xl_http_get_status(http) != 200)
+	{
+		err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+	body = xl_http_get_body(http);
+	i = json_parse_bt_index(body);
+	if (i == -1)
+		goto failed;
+	xl_http_free(http);
+	s_asprintf(&index, "%d", i);
+	return index;
+failed:
+	xl_http_free(http);
+	return NULL;
+}
+
 int xl_vod_add_bt_video(XLVod *vod, const char *path)
 {
-	char *bthash;
-	bthash = upload_bt_file(vod, path);
-	if (bthash == NULL)
+	char *bt_hash;
+	char *bt_index;
+	bt_hash = vod_upload_bt_file(vod, path);
+	if (bt_hash == NULL)
 		return -1;
 
-	printf("bthash=%s\n", bthash);
+	bt_index = vod_get_bt_index(vod, bt_hash);
+	if (bt_index == NULL)
+		return -1;
+	printf("bt_hash=%s, bt_index=%s\n", bt_hash, bt_index);
 //	int ret = xl_vod_add_video(vod, bthash, NULL);
-	xl_vod_get_video_url(vod, bthash, VIDEO_480P);
-	s_free(bthash);
-	printf("ret=%d\n");
+	//xl_vod_get_video_url(vod, bthash, VIDEO_480P);
+	s_free(bt_hash);
+	s_free(bt_index);
+	//printf("ret=%d\n");
 	return 0;
 }

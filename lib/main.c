@@ -20,6 +20,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 #include <stdio.h>
+#include <string.h>
 
 #include "xl-http.h"
 #include "smemory.h"
@@ -67,8 +68,11 @@ void test_client(const char* username, const char* password)
 			printf("ERROR: http error\n");
 		if (err == XL_ERROR_LOGIN_NEED_VC)
 		{
-			printf("please input the verify code(see /tmp/vcode.jpg):");
-			fgets(buf, 5, stdin);
+			do{
+				fflush(stdin);
+				printf("please input the verify code(see /tmp/vcode.jpg):");
+				fgets(buf, 5, stdin);
+			}while(strlen(buf) != 4);
 			printf("vcode=%s\n", buf);
 			xl_client_set_verify_code(client, buf);
 		}

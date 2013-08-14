@@ -24,5 +24,7 @@
 #define __XL_JSON_H__  1
 
 char *json_parse_bt_hash(const char* json_str);
+int json_parse_bt_index(const char* json_str);
+int json_parse_get_return_code(const char* json_str);
 
 #endif /* __XL_JSON_H__ */
