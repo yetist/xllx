@@ -90,6 +90,7 @@ void test_client(const char* username, const char* password)
 //	xl_vod_add_video(vod, "thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NU MwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa", NULL);
 //	char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type);
 //	xl_vod_get_video_url(vod, "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=", VIDEO_1080P);
+//	xl_vod_get_video_url(vod, "magnet:?xt=urn:btih:B23DC247B279437C74F85E06B44E7D0A4BA40B88", VIDEO_1080P);
 //	int xl_vod_add_bt_viedio(XLVod *vod, char *btfilepath)
 	xl_vod_add_bt_video(vod, "/home/jingqianqiu/Intolerable_Cruelty.torrent");
 	xl_vod_add_bt_video(vod, "/dev/shm/004f50950256e66f128d528d0773fdefbc298cce.torrent");

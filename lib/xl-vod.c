@@ -19,27 +19,6 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
-/* vi: set sw=4 ts=4 wrap ai: */
-/*
- * xl-vod.c: This file is part of ____
- *
- * Copyright (C) 2013 yetist <xiaotian.wu@i-soft.com.cn>
- *
- * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- * */
 
 #include "xl-vod.h"
 
@@ -56,6 +35,7 @@
 #include "smemory.h"
 #include "logger.h"
 #include "md5.h"
+#include "xl-parse.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -69,6 +49,8 @@ struct _XLVod
 {
 	XLClient *client;
 };
+
+static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
 
 XLVod* xl_vod_new(XLClient *client)
 {
@@ -90,63 +72,6 @@ void xl_vod_free(XLVod *vod)
 	s_free(vod);
 }
 
-int if_response_has_url(char *response, const char *url)
-{
-	struct json_object *resp;
-	struct json_object *resp_obj;
-	struct json_object *res_array;
-	struct json_object *obj;
-
-	if(!url)
-		return 0;
-
-	resp = json_tokener_parse(response);
-	if (!resp)
-		return 0;
-	if(	is_error(resp)) 
-	{
-		printf("got error as expected\n");
-		return 0;
-	}
-
-	xl_log(LOG_NOTICE, "url is %s\n", url);
-
-	resp_obj = json_object_object_get(resp, "resp"); 
-	if (resp_obj)
-	{
-		res_array = json_object_object_get(resp_obj, "history_play_list"); 
-		if (res_array)
-		{
-			int i;
-			for (i = 0; i < json_object_array_length(res_array); i++)
-			{
-				obj = json_object_array_get_idx(res_array, i);
-				if (obj)
-				{
-					struct json_object *n = json_object_object_get(obj, "src_url"); 
-					if (n)
-					{
-						char *src_url = json_object_get_string(n);
-						char *un_url = xl_url_unquote(src_url);
-						xl_log(LOG_NOTICE, "un_url is %s\n", un_url);
-
-						if (strcmp(un_url, url) == 0)
-						{
-							xl_log(LOG_NOTICE, "url is %s\n", url);
-							s_free(un_url);
-							json_object_put(resp);
-							return 1;
-						}
-						s_free(un_url);
-					}
-				}
-			}
-		}
-	}
-	json_object_put(resp);
-	return 0;
-}
-
 int xl_vod_has_video(XLVod *vod, const char* url)
 {
 	//http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=1376293731064
@@ -158,7 +83,7 @@ int xl_vod_has_video(XLVod *vod, const char* url)
 	snprintf(get, sizeof(get) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
 	xl_log(LOG_NOTICE, "get url is %s\n", get);
 
-	req = xl_client_open_url(client, get, HTTP_GET, NULL, DEFAULT_REFERER, &err);
+	req = xl_client_open_url(client, get, HTTP_GET, NULL, NULL, &err);
 
 	char *response = xl_http_get_body(req);
 	printf("here the response is %s\n", response);
@@ -172,56 +97,6 @@ int xl_vod_has_video(XLVod *vod, const char* url)
 	xl_http_free(req);
 
 	return 0;
-}
-
-char *xl_get_name_from_response(char *response)
-{
-	struct json_object *resp;
-	struct json_object *resp_obj;
-	struct json_object *res_array;
-	struct json_object *obj;
-	char *name = NULL;
-
-	printf("here res is %s\n", response);
-
-	resp = json_tokener_parse(response);
-
-	if (!resp)
-		return NULL;
-
-	if(	is_error(resp)) 
-	{
-		printf("got error as expected\n");
-		json_object_put(resp);
-		return NULL;
-	}
-
-	resp_obj = json_object_object_get(resp, "resp"); 
-	if (resp_obj)
-	{
-		res_array = json_object_object_get(resp_obj, "res"); 
-		if (res_array)
-		{
-			obj = json_object_array_get_idx(res_array, 0);
-			if (obj)
-			{
-				struct json_object *n = json_object_object_get(obj, "name"); 
-
-				//char *url = (char *)json_object_object_get(obj, "url"); 
-				if (n)
-				{
-					name = strdup(json_object_get_string(n));
-					printf("name : %s\n", name);
-				}
-			}
-		}
-	}
-	json_object_put(resp);
-	if (name)
-	{
-		return name;
-	}
-	return NULL;
 }
 
 char *from_url_get_name(XLVod *vod, const char* url)
@@ -343,83 +218,6 @@ int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 	return 0;
 }
 
-char *get_download_url_from_response(char *response, VideoType type)
-{
-	/*
-	 * XL_CLOUD_FX_INSTANCEqueryBack({"resp": {"status": 1, "url_hash": "10582384012816867477", "trans_wait": -1, "userid": "288543553", "ret": 5, "src_info": {"file_name": "aaa58256146@群魔色舞@(AVopen)愛田友,蒼井,穗花,小澤瑪利亞,麻美,青木~來自S1的衝擊", "cid": "", "file_size": "0", "gcid": ""}, "vodinfo_list": [], "duration": 0, "vod_permit": {"msg": "OK", "ret": 0}, "error_msg": ""}})
-	 *
-	 * note:
-	 * 如果 trans_wait=-1, 说明该资源转码需要较长时间，需要耐心等待。转码的进度可以通过
-	 * http://i.vod.xunlei.com/req_progress_query?&t=1376447379259 进行查询。
-	 */
-
-	struct json_object *resp;
-	struct json_object *resp_obj;
-	struct json_object *res_array;
-	struct json_object *obj;
-	struct json_object *duration;
-	char *url = NULL;
-	char download_url[512];
-	int du = 0;
-
-	resp = json_tokener_parse(response);
-	if (!resp)
-		return NULL;
-	if(	is_error(resp)) 
-	{
-		printf("got error as expected\n");
-		json_object_put(resp);
-		return NULL;
-	}
-
-	resp_obj = json_object_object_get(resp, "resp"); 
-	if (resp_obj)
-	{
-		res_array = json_object_object_get(resp_obj, "vodinfo_list"); 
-		if (res_array)
-		{
-			//int i;
-			//for (i = 0; i < json_object_array_length(res_array); i++)
-			//	{
-			obj = json_object_array_get_idx(res_array, type);
-			if (obj)
-			{
-				struct json_object *n = json_object_object_get(obj, "vod_url"); 
-				if (n)
-				{
-					char *vod_url = json_object_get_string(n);
-					url = strdup(vod_url);
-					xl_log(LOG_NOTICE, "url is %s\n", url);
-				}
-			}
-			//	}
-		}
-		duration = json_object_object_get(resp_obj, "duration"); 
-
-		if (duration)
-			du = json_object_get_int64(duration)/1000/1000;
-		xl_log(LOG_NOTICE, "du %d\n", du);
-	}
-	if (url)
-	{
-		char *substr = strstr(url, "s=");
-		char num[20];
-		int i =0;
-		for (*(substr+2); *(substr+2 + i) != '&'; i++)
-		{
-			num[i] = *(substr+2 + i);
-		}
-		num[i] = '\0';
-		xl_log(LOG_NOTICE, "substr is %s, num is %s\n", substr, num);
-		snprintf(download_url, sizeof(download_url), "%s&start=0&end=%s&type=normal&du=%d", url, num, du);
-		xl_log(LOG_NOTICE, "download_url is %s\n", download_url);
-		s_free(url);
-	}
-	
-	json_object_put(resp);
-	return strdup(download_url);
-}
-
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 {
 	if (!url)
@@ -437,7 +235,10 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	XLClient *client = vod -> client;
 	char get_url[1024];
 	char *userid, *sessionid;
+	char *vtype = NULL;
 	XLCookies *cookies = xl_client_get_cookies(client);
+
+	memset(get_url, '\0', sizeof(get_url));
 
 	userid = xl_cookies_get_userid(cookies);
 	if (userid != NULL)
@@ -453,10 +254,23 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	char *en_url = xl_url_quote((char *)url);
 	char *en_name = xl_url_quote((char *)name);
 
+	if (strncmp(url, "magnet", 6) == 0)
+	{
+		vtype = "loadmetadata";
+	}
+	else
+	{
+		vtype="normal";
+	}
+
 	if (strncmp(url, "bt://", 5) == 0)
 	{
-		int num = 8;
-		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s/%d&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, num, en_name, userid, sessionid, get_current_timestamp());
+		char* bt_index = vod_get_bt_index(vod, url);
+		if (bt_index != NULL)
+		{
+			snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s/%s&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", en_url, bt_index, en_name, userid, sessionid, get_current_timestamp());
+			s_free(bt_index);
+		}
 	}
 	else
 	{
@@ -469,10 +283,17 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 
 	XLHttp *req;
 	XLErrorCode err;
-	req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
-	char *response =  xl_http_get_body(req);
-	printf("get response %s\n",  xl_http_get_body(req));
-	return	get_download_url_from_response(response, type);
+	if(strlen(get_url))
+	{
+		//req = xl_client_open_url(client, get_url, HTTP_GET, NULL, download_refer, &err);
+		req = xl_client_open_url(client, get_url, HTTP_GET, NULL, NULL, &err);
+		char *response =  xl_http_get_body(req);
+		printf("get response %s\n",  xl_http_get_body(req));
+
+		return	get_download_url_from_response(response, type, vtype);
+	}
+		
+	return NULL;	
 }
 
 int check_file_existed(const char *filename)
@@ -521,7 +342,7 @@ failed:
 	return NULL;
 }
 
-char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
+static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 {
 	int i;
 	char *index = NULL;
