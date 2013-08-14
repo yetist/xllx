@@ -133,8 +133,10 @@ int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 	char msg[6300000];
 	size_t have_write_bytes;
 	char buf[1024];
-    char *boundary_ = "----WebKitFormBoundaryk5nH7APtIbShxvqE";
+    char *boundary_;
 	char *boundary;
+	ssize_t count;
+	int fd;
 
 	len = get_file_size(path, &have_write_bytes);
 	if (len != 0 || have_write_bytes > UPLOAD_FILE_MAX_SIZE)
@@ -144,6 +146,7 @@ int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 	have_write_bytes = len = 0;
 
 	//set header
+    boundary_ = "----WebKitFormBoundaryk5nH7APtIbShxvqE";
 	snprintf(buf, sizeof(buf), "multipart/form-data;boundary=%s", boundary_);
 	xl_http_set_header(request, "Content-Type", buf);
 
@@ -157,8 +160,6 @@ int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 	memcpy(msg + have_write_bytes, buf, len);
 	have_write_bytes += len;
 
-	ssize_t count;
-	int fd;
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
 		goto failed;
