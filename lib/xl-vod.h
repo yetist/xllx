@@ -36,17 +36,17 @@ typedef enum
 typedef enum
 {
 	VIDEO_WAIT_DOWNLOAD,	// 0: "下载等待中",
- 	VIDEO_DOWNLOADING,		// 1: "下载中",
- 	VIDEO_DOWNLOAD_FAILED,	// 2: "下载失败",
-    VIDEO_WAIT_CONVERT,		// 3: "转码等待中",
-    VIDEO_CONVERTING,		// 4: "转码中",
-    VIDEO_CONVERTED,		// 5: "转码完成",
-    VIDEO_CONVERT_FAILED,	// 6: "转码失败",
-    VIDEO_READY,			// 7: "完成",
-    VIDEO_SEED_DOWNLOADING,	// 8: "种子下载中",
-    VIDEO_SEED_DOWNLOADED,	// 9: "种子下载完成",
-    VIDEO_NO_VIDEO,			// 10: "链接不含视频",
-    //VIDEO_DOWNLOAD_FAILED=11,	// 11: "下载失败"
+	VIDEO_DOWNLOADING,		// 1: "下载中",
+	VIDEO_DOWNLOAD_FAILED,	// 2: "下载失败",
+	VIDEO_WAIT_CONVERT,		// 3: "转码等待中",
+	VIDEO_CONVERTING,		// 4: "转码中",
+	VIDEO_CONVERTED,		// 5: "转码完成",
+	VIDEO_CONVERT_FAILED,	// 6: "转码失败",
+	VIDEO_READY,			// 7: "完成",
+	VIDEO_SEED_DOWNLOADING,	// 8: "种子下载中",
+	VIDEO_SEED_DOWNLOADED,	// 9: "种子下载完成",
+	VIDEO_NO_VIDEO,			// 10: "链接不含视频",
+	//VIDEO_DOWNLOAD_FAILED=11,	// 11: "下载失败"
 } VideoStatus;
 
 typedef struct _XLVod XLVod;
