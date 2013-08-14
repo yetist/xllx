@@ -308,7 +308,7 @@ char *from_url_get_name(XLVod *vod, const char* url)
 int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 {
 	char *name;
-	if (name1 == NULL)
+	if (name1 != NULL)
 	{
 		name = name1;
 	}
@@ -319,7 +319,6 @@ int xl_vod_add_video(XLVod *vod, const char* url, char *name1)
 
 	//	char *from_url_get_name(XLVod *vod, const char* url)
 	XLClient *client = vod -> client;
-
 
 	XLHttp *req;
 	XLErrorCode err;
@@ -452,7 +451,6 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type)
 	if (!url)
 		return NULL;
 
-
 	printf("url is :%s\n", url);
 	char *name = from_url_get_name(vod, url);
 
@@ -501,35 +499,56 @@ int check_file_existed(char *filename)
 	return (stat( filename, &st )==0 && S_ISREG(st.st_mode));
 }
 
-int xl_vod_add_bt_video(XLVod *vod, const char *path)
+char* upload_bt_file(XLVod *vod, const char *path)
 {
-	if (!vod || !path)
-	{
-		return -1;
-	}
-		
-	if(!check_file_existed(path))
-	{
-		xl_log(LOG_NOTICE, "File Not Existed %s\n", path);
-		return -1;
-	}
-	xl_log(LOG_NOTICE, "File Existed %s\n", path);
-
-	//Check File Size
 	size_t file_size;
-	get_file_size(path, &file_size);
-	if(file_size >= MAX_BUFF_LEN)
-	{
-		xl_log(LOG_NOTICE, "File Size is too Big %s\n", path);
-		return -1;
-	}
-	xl_log(LOG_NOTICE, "File Size %d\n", file_size);
-
 	char url[1024];
 	XLErrorCode err;
 	XLHttp *http;
+	char* body;
+	char* bthash;
+
+	if (!vod || !path)
+		return NULL;
+
+	if(!check_file_existed(path))
+		return NULL;
+
+	get_file_size(path, &file_size);
+	if(file_size >= MAX_BUFF_LEN)
+		return NULL;
 
 	snprintf(url, sizeof(url), "http://dynamic.vod.lixian.xunlei.com/interface/upload_bt?from=vlist&t=%ld", get_current_timestamp());
 	http = xl_client_upload_file(vod->client, url, "Filedata", path, &err);
+	if (http == NULL){
+		goto failed;
+	}
+	if (xl_http_get_status(http) != 200)
+	{
+		err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+	body = xl_http_get_body(http);
+	bthash = json_parse_bt_hash(body);
+	if (bthash == NULL)
+		goto failed;
+	xl_http_free(http);
+	return bthash;
+failed:
+	xl_http_free(http);
+	return NULL;
+}
+
+int xl_vod_add_bt_video(XLVod *vod, const char *path)
+{
+	char *bthash;
+	bthash = upload_bt_file(vod, path);
+	if (bthash == NULL)
+		return -1;
+
+	printf("bthash=%s\n", bthash);
+//	int ret = xl_vod_add_video(vod, bthash, NULL);
+//	s_free(bthash);
+//	printf("ret=%d\n");
 	return 0;
 }

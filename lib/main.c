@@ -88,6 +88,7 @@ void test_client(const char* username, const char* password)
 	xl_vod_get_video_url(vod, "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=", VIDEO_1080P);
 //	int xl_vod_add_bt_viedio(XLVod *vod, char *btfilepath)
 	xl_vod_add_bt_video(vod, "/home/jingqianqiu/Intolerable_Cruelty.torrent");
+	xl_vod_add_bt_video(vod, "/dev/shm/004f50950256e66f128d528d0773fdefbc298cce.torrent");
 	//int xl_vod_has_video(XLVod *vod, const char* url);
 //	xl_vod_has_video(vod, "thunder://QUFmdHA6Ly9keWdvZDE6ZHlnb2QxQGQwNzAuZHlnb2Qub3JnOjEwOTAvJTVCJUU5JTk4JUIzJUU1JTg1JTg5JUU3JTk0JUI1JUU1JUJEJUIxd3d3LnlnZHk4LmNvbSU1RC4lRTUlOEYlQjYlRTklOTclQUUlRUYlQkMlOUElRTclQkIlODglRTYlOUUlODElRTQlQjglODAlRTYlODglOTguQkQuNzIwcC4lRTUlOUIlQkQlRTclQjIlQTQlRTUlOEYlOEMlRTglQUYlQUQlRTQlQjglQUQlRTUlQUQlOTcubWt2Wlo=");
 	//xl_read_all_complete_tasks(client);
