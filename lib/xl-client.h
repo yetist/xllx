@@ -23,7 +23,6 @@
 #ifndef __CLIENT_H__ 
 #define __CLIENT_H__  1
 
-#include "xllx.h"
 #include "xl-http.h"
 #include "xl-cookies.h"
 

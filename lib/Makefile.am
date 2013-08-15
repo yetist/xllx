@@ -46,7 +46,7 @@ testxl_SOURCES = main.c
 testxl_CFLAGS = -I$(top_srcdir)/lib $(GHTTP_CFLAGS)  $(JSON_CFLAGS)
 testxl_LDADD = $(lib_LTLIBRARIES) $(GHTTP_LIBS) $(ZLIB_LIBS) $(GHTTP_LIBS) -lpthread $(JSON_LIBS)
 
-header_DATA = xllx.h
+header_DATA = xllx.h xl-http.h xl-client.h xl-cookies.h xl-vod.h
 headerdir = $(includedir)
 
 -include $(top_srcdir)/git.mk

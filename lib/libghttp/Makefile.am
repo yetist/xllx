@@ -1,4 +1,4 @@
-lib_LTLIBRARIES=libghttp.la
+noinst_LTLIBRARIES = libghttp.la
 libghttp_la_CPPFLAGS= -I./libghttp
 libghttp_la_LIBADD= 
 libghttp_la_SOURCES= ghttp.c http_base64.h \

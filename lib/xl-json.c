@@ -21,7 +21,7 @@
  * */
 
 #include <string.h>
-       #include <stdlib.h>
+#include <stdlib.h>
 #include <json.h>
 #include <bits.h>
 #include <json_tokener.h>
@@ -29,27 +29,6 @@
 #include "smemory.h"
 #include "logger.h"
 #include "xl-url.h"
-
-struct _VideoItem
-{
-	char *gcid;	/* maybe empty. */
-	char *url_hash;
-	//gcidlist; /* maybe not exist. */
-	char *vod_info;
-	char *cid; /* maybe empty. */
-	char *url; /* maybe not exist. */
-	char *file_name;
-	char *userid;
-	long ordertime;
-	char *datafrom;
-	int platform;
-	char *src_url;
-	size_t file_size;
-	int64_t duration;
-	char *playtime;
-	int playflag;
-	char *createtime;
-};
 
 char *json_parse_bt_hash(const char* json_str)
 {
@@ -305,6 +284,66 @@ int json_parse_has_url(const char *json_str, const char *url)
 	return ret;
 }
 
+char *json_parse_get_url_hash(const char* json_str, const char *url)
+{
+	/*
+	 * json_str same as up
+	 * return ${url_hash}
+	 */
+	char *url_hash = NULL;
+	struct json_object *jsobj;
+	struct json_object *jo_resp;
+	struct json_object *jo_history_play_list;
+	struct json_object *jo_history_play_list_n;
+	struct json_object *jo_src_url;
+	struct json_object *jo_url_hash;
+
+	if (!json_str || !url)
+		return NULL;
+
+	jsobj = json_tokener_parse(json_str);
+	if(is_error(jsobj) || !jsobj)
+	{
+		json_object_put(jsobj);
+		return NULL;
+	}
+
+	jo_resp = json_object_object_get(jsobj, "resp"); 
+	if (jo_resp)
+	{
+		jo_history_play_list = json_object_object_get(jo_resp, "history_play_list"); 
+		if (jo_history_play_list)
+		{
+			int i;
+			for (i = 0; i < json_object_array_length(jo_history_play_list); i++)
+			{
+				jo_history_play_list_n = json_object_array_get_idx(jo_history_play_list, i);
+				if (jo_history_play_list_n)
+				{
+					jo_src_url = json_object_object_get(jo_history_play_list_n, "src_url"); 
+					if (jo_src_url)
+					{
+						const char *src_url = json_object_get_string(jo_src_url);
+						char *uri = xl_url_unquote(src_url);
+						if (strcmp(uri, url) == 0)
+						{
+							jo_url_hash = json_object_object_get(jo_history_play_list_n, "url_hash"); 
+							url_hash = s_strdup(json_object_get_string(jo_url_hash));
+						}
+						s_free(uri);
+						json_object_put(jo_src_url);
+					}
+					json_object_put(jo_history_play_list_n);
+				}
+			}
+			json_object_put(jo_history_play_list);
+		}
+		json_object_put(jo_resp);
+	}
+	json_object_put(jsobj);
+	return url_hash;
+}
+
 char *json_parse_get_name(const char *json_str)
 {
 	/*
@@ -360,7 +399,7 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 {
 	/*
 	 *
-	 * XL_CLOUD_FX_INSTANCEqueryBack({
+	 * {
      * "resp": {
      *     "status": 0,
      *     "url_hash": "288301201412044132",
@@ -396,7 +435,7 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
      *     },
      *     "error_msg": ""
      * }
-	 * })
+	 * }
 	 */
 
 	int spec_id;
@@ -423,7 +462,7 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 	jo_resp = json_object_object_get(jsobj, "resp");
 	if (jo_resp)
 	{
-		//FIXME: trans_wait -1 is not ready.
+		//FIXME: maybe trans_wait -1 is not ready.
 		jo_vodinfo_list = json_object_object_get(jo_resp, "vodinfo_list"); 
 		if (jo_vodinfo_list)
 		{
@@ -439,43 +478,26 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 						spec_id = json_object_get_int(jo_spec_id);
 						json_object_put(jo_spec_id);
 					}
+					jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url");
+					if (jo_vod_url)
+					{
+						if (vod_url != NULL)
+							s_free(vod_url);
+						vod_url = s_strdup(json_object_get_string(jo_vod_url));
+						json_object_put(jo_vod_url);
+					}
+					// use this logic, we sure that will return a valid url if type is not matched.
 					if (type == VIDEO_480P && spec_id == 225536)
 					{
-						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
-						if (jo_vod_url)
-						{
-							if (vod_url != NULL)
-								s_free(vod_url);
-							vod_url = s_strdup(json_object_get_string(jo_vod_url));
-							json_object_put(jo_vod_url);
-						}
-						json_object_put(jo_vodinfo_list_n);
 						break;
 					} else if (type == VIDEO_720P && spec_id == 282880)
 					{
-						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
-						if (jo_vod_url)
-						{
-							if (vod_url != NULL)
-								s_free(vod_url);
-							vod_url = s_strdup(json_object_get_string(jo_vod_url));
-							json_object_put(jo_vod_url);
-						}
-						json_object_put(jo_vodinfo_list_n);
 						break;
 					} else if (type == VIDEO_1080P && spec_id == 356608)
 					{
-						jo_vod_url = json_object_object_get(jo_vodinfo_list_n, "vod_url"); 
-						if (jo_vod_url)
-						{
-							if (vod_url != NULL)
-								s_free(vod_url);
-							vod_url = s_strdup(json_object_get_string(jo_vod_url));
-							json_object_put(jo_vod_url);
-						}
-						json_object_put(jo_vodinfo_list_n);
 						break;
 					}
+					json_object_put(jo_vodinfo_list_n);
 				}
 			}
 			json_object_put(jo_vodinfo_list);
@@ -489,6 +511,7 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 	json_object_put(jsobj);
 	if (vod_url != NULL)
 	{
+		xl_log(LOG_DEBUG, "vod_url=%s\n", vod_url);
 		char *substr = strstr(vod_url, "s=");
 		char num[20];
 		int i =0;
@@ -504,4 +527,57 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 		s_free(vod_url);
 	}
 	return download_url;
+}
+
+VideoStatus json_parse_get_video_status(const char *json_str)
+{
+	 /*
+	  * json_str is {"resp": {"progress_info_list": [{"progress": "5_10000", "url_hash": "10582384012816867477"}], "userid": "288543553", "ret": 0}}
+	  * return progress to VideoStatus
+	  */
+	int video_status = 2;
+	struct json_object *jsobj;
+	struct json_object *jo_resp;
+	struct json_object *jo_progress_info_list;
+	struct json_object *jo_progress_info_list_n;
+	struct json_object *jo_progress;
+	char *progress = NULL;
+
+	if (!json_str)
+		return VIDEO_DOWNLOAD_FAILED;
+
+	jsobj = json_tokener_parse(json_str);
+	if( is_error(jsobj) || !jsobj)
+	{
+		json_object_put(jsobj);
+		return VIDEO_DOWNLOAD_FAILED;
+	}
+	jo_resp = json_object_object_get(jsobj, "resp");
+	if (jo_resp)
+	{
+		jo_progress_info_list = json_object_object_get(jo_resp, "progress_info_list"); 
+		if (jo_progress_info_list)
+		{
+			if (json_object_array_length(jo_progress_info_list) != 1)
+				return VIDEO_DOWNLOAD_FAILED;
+			jo_progress_info_list_n = json_object_array_get_idx(jo_progress_info_list, 0);
+			if (jo_progress_info_list_n)
+			{
+				jo_progress = json_object_object_get(jo_progress_info_list_n, "progress");
+				if (jo_progress)
+				{
+					progress = s_strdup(json_object_get_string(jo_progress));
+					*(progress+1) = '\0';
+					video_status = atoi(progress);
+					s_free(progress);
+					json_object_put(jo_progress);
+				}
+				json_object_put(jo_progress_info_list_n);
+			}
+			json_object_put(jo_progress_info_list);
+		}
+		json_object_put(jo_resp);
+	}
+	json_object_put(jsobj);
+	return (VideoStatus)video_status;
 }

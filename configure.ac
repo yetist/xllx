@@ -113,6 +113,7 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_CONFIG_FILES([
 Makefile
+lib/xllx.h
 lib/Makefile
 lib/libghttp/Makefile
 ])

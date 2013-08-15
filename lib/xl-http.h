@@ -24,7 +24,17 @@
 #define XL_HTTP_H
 
 #include <ghttp.h>
-#include "xllx.h"
+
+/* XL Error Code */
+typedef enum {
+    XL_ERROR_OK,
+    XL_ERROR_ERROR,
+    XL_ERROR_FILE_NOT_EXIST,
+    XL_ERROR_LOGIN_NEED_VC = 10,
+    XL_ERROR_LOGIN_EXPIRE,
+    XL_ERROR_NETWORK_ERROR = 20,
+    XL_ERROR_HTTP_ERROR = 30,
+} XLErrorCode;
 
 typedef enum
 {
@@ -52,7 +62,6 @@ int   xl_http_has_cookie(XLHttp *request, const char *name);
 int   xl_http_get_status(XLHttp *request);
 char* xl_http_get_body(XLHttp *request);
 int   xl_http_get_body_len(XLHttp *request);
-#define xl_http_get_response xl_http_get_body
 
 void xl_http_free(XLHttp *request);
 

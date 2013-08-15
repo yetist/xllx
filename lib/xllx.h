@@ -2,23 +2,15 @@
 #define XLLX_TYPE_H
 
 #include <pthread.h>
+#include <xl-http.h>
+#include <xl-client.h>
+#include <xl-vod.h>
 
-/* XL Error Code */
-typedef enum {
-    XL_ERROR_OK,
-    XL_ERROR_ERROR,
-    XL_ERROR_NULL_POINTER,
-    XL_ERROR_FILE_NOT_EXIST,
-    XL_ERROR_LOGIN_NEED_VC = 10,
-    XL_ERROR_LOGIN_EXPIRE,
-    XL_ERROR_NETWORK_ERROR = 20,
-    XL_ERROR_HTTP_ERROR = 30,
-} XLErrorCode;
+#define XLLX_VERSION_MAJOR 13
+#define XLLX_VERSION_MINOR 8
+#define XLLX_VERSION_MICRO 2
+#define XLLX_VERSION_API "1"
 
-typedef struct _VerifyCode VerifyCode;
-typedef struct _XLClient XLClient;
-
-XLClient *xl_client_new(const char *username, const char *password);
-XLClient *xl_client_set_cookie_path(XLClient *client, const char *path);
+#define XLLX_VERSION "13.8.2"
 
 #endif  /* XLLX_TYPE_H */

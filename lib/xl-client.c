@@ -330,7 +330,7 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		goto failed;
 	}
 	if (xl_http_get_body_len(req) <= 2048)
-		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_response(req));
+		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
 	client_show_cookie_names(req);
 	return req;
 failed:
@@ -419,7 +419,7 @@ static void get_verify_image(XLClient *client)
 		int fd = creat(client->vimgpath, S_IRUSR | S_IWUSR);
 		if (fd != -1) {
 			int ret;
-			ret = write(fd, xl_http_get_response(req), image_length);
+			ret = write(fd, xl_http_get_body(req), image_length);
 			if (ret <= 0) {
 				xl_log(LOG_ERROR, "Saving verify image file error\n");
 			}
@@ -486,7 +486,7 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		goto failed;
 	}
 	if (xl_http_get_body_len(http) <= 2048)
-		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_response(http));
+		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
 	client_show_cookie_names(http);
 	return http;
 failed:
