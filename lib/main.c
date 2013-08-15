@@ -26,15 +26,13 @@
 #include "xllx.h"
 
 char video_urls[][500] = {
-	//"thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NUMwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa",
-	//"magnet:?xt=urn:btih:B23DC247B279437C74F85E06B44E7D0A4BA40B88",
-	//"/home/jingqianqiu/Intolerable_Cruelty.torrent",
-	//"/dev/shm/004f50950256e66f128d528d0773fdefbc298cce.torrent",
-	//"/dev/shm/a.torrent",
-	//"/dev/shm/b.torrent",
-	//"/dev/shm/c.torrent",
+	"thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NUMwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa",
 	"ed2k://|file|[%E9%AD%94%E6%B3%95%E5%B0%91%E5%A5%B3%E5%B0%8F%E5%9C%86%EF%BC%9A%E6%B0%B8%E6%81%92%E7%9A%84%E6%95%85%E4%BA%8B].[CASO&SumiSora][Puella_Magi_Madoka_Magica_the_Movie][02][GB][720p](ED2000.COM).mp4|749170909|e16616cb701273324ae6f14b0aab6695|h=krwl7h42fckjx3nl7aryd5vqcqnqyxpz|/",
-	//"/dev/shm/d.torrent",
+	"magnet:?xt=urn:btih:32dbf49152cf116cbc0f0cfcf502ce288d3e56ad&tr.0=http://tracker.openbittorrent.com/announce&tr.1=udp://tracker.openbittorrent.com:80/announce&tr.2=http://tracker.thepiratebay.org/announce&tr.3=http://tracker.publicbt.com/announce&tr.4=http://tracker.prq.to/announce&tr.5=udp://tracker.publicbt.com:80/announce",
+	"ed2k://|file|%E9%80%9F%E5%BA%A6%E4%B8%8E%E6%BF%80%E6%83%856(%E5%88%9D%E7%89%88).Fast.And.Furious.6.2013.WEB-MP4-%E4%BA%BA%E4%BA%BA%E5%BD%B1%E8%A7%86%E5%8E%9F%E5%88%9B%E5%90%AC%E8%AF%91%E4%B8%AD%E6%96%87%E5%AD%97%E5%B9%95.mp4|782677556|2665013a34a00b5c5a03eaa217d3aba2|h=bbjx7xgiccrfj57foc2e3e3uak6rfuwk|/",
+	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333350&aid=225934",
+	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333635&aid=226138",
+	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333636&aid=226139",
 	{0},
 };
 
@@ -106,15 +104,15 @@ void test_client(const char* username, const char* password)
 			if (err == XL_ERROR_VIDEO_NOT_READY) {
 				VideoStatus status;
 				status = xl_vod_get_video_status(vod, video_urls[i], &err);
-				printf("video is not ready, status=%d\n", status);
+				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video is not ready, status=%d\n", status);
 			} else if (err == XL_ERROR_VIDEO_URL_NOT_ALLOWED) {
-				printf("video url is not allowed\n");
+				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video url is not allowed\n");
 			} else if (err == XL_ERROR_VIDEO_ADD_FAILED) {
-				printf("video add failed\n");
+				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
 			}
 
 		} else {
-			printf("@@@@@@@@@@@@@@@@@@ %s\n", vurl);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  play_url is %s\n", vurl);
 			free(vurl);
 		}
 		i++;

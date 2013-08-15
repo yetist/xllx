@@ -1,0 +1,16 @@
+#ifndef XLLX_TYPE_H
+#define XLLX_TYPE_H
+
+#include <pthread.h>
+#include <xl-http.h>
+#include <xl-client.h>
+#include <xl-vod.h>
+
+#define XLLX_VERSION_MAJOR @XLLX_MAJOR_VERSION@
+#define XLLX_VERSION_MINOR @XLLX_MINOR_VERSION@
+#define XLLX_VERSION_MICRO @XLLX_MICRO_VERSION@
+#define XLLX_VERSION_API "@API_VERSION@"
+
+#define XLLX_VERSION "@VERSION@"
+
+#endif  /* XLLX_TYPE_H */

@@ -3,7 +3,6 @@
 
 #include <pthread.h>
 #include <xl-http.h>
-#include <xl-errors.h>
 #include <xl-client.h>
 #include <xl-vod.h>
 

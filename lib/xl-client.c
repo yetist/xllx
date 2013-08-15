@@ -122,7 +122,6 @@ int do_login(XLClient *client, XLErrorCode *err)
 		goto failed;
 	}
 	xl_cookies_receive(client->cookies, req, 1);
-	printf("status code=%d\n", xl_http_get_status(req));
 	int status_code = xl_http_get_status(req);
 	if (status_code != 302)
 	{
@@ -306,21 +305,21 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 	if (!req) {
 		goto failed;
 	}
-    xl_log(LOG_NOTICE, "URL[%s]\n", url);
+    //xl_log(LOG_NOTICE, "URL[%s]\n", url);
     cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
-		xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
+		//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
 		xl_http_set_header(req, "Cookie", cookies);
         s_free(cookies);
     }
     if (refer != NULL) {
-		xl_log(LOG_NOTICE, "Refer[%s]\n", refer);
+		//xl_log(LOG_NOTICE, "Refer[%s]\n", refer);
 		xl_http_set_header(req, "Refer", refer);
     }
 	if (post_data != NULL)
 	{
 		char *post = s_strdup(post_data);
-		xl_log(LOG_NOTICE, "POST[%s]\n", post);
+		//xl_log(LOG_NOTICE, "POST[%s]\n", post);
 		ret = xl_http_open(req, method, post);
 		s_free(post);
 	}else{
@@ -330,8 +329,8 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	if (xl_http_get_body_len(req) <= 9000)
-		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
+//	if (xl_http_get_body_len(req) <= 9000)
+//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
 	//client_show_cookie_names(req);
 	return req;
 failed:
@@ -475,10 +474,10 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 	if (!http) {
 		goto failed;
 	}
-    xl_log(LOG_NOTICE, "URL[%s]\n", url);
+    //xl_log(LOG_NOTICE, "URL[%s]\n", url);
     cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
-		xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
+		//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
 		xl_http_set_header(http, "Cookie", cookies);
         s_free(cookies);
     }
@@ -486,8 +485,8 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	if (xl_http_get_body_len(http) <= 6000)
-		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
+//	if (xl_http_get_body_len(http) <= 6000)
+//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
 	//client_show_cookie_names(http);
 	return http;
 failed:

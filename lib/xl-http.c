@@ -416,17 +416,14 @@ int xl_http_has_cookie(XLHttp *request, const char* key)
 char *xl_http_get_cookie(XLHttp *request, const char *name)
 {
 	if (!name) {
-		xl_log(LOG_ERROR, "Invalid parameter\n");
 		return NULL; 
 	}
 
 	char *cookie = ghttp_get_cookie(request->req, name);
 	if (!cookie) {
-		//xl_log(LOG_WARNING, "No cookie: %s\n", name);
 		return NULL;
 	}
 
-	//xl_log(LOG_DEBUG, "Parse Cookie: %s=%s\n", name, cookie);
 	return cookie;
 }
 

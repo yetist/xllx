@@ -292,7 +292,7 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 	if (!orig_url || !new_url)
 		return ret;
 
-	if (strncmp(orig_url, "ed2k://", 7) == 0)
+	if ((strncmp(orig_url, "ed2k://", 7) == 0) &&(strncmp(new_url, "ed2k://", 7) == 0))
 	{
 		char *end;
 		char *src = strdup(orig_url);
@@ -549,7 +549,6 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 	json_object_put(jsobj);
 	if (vod_url != NULL)
 	{
-		xl_log(LOG_DEBUG, "vod_url=%s\n", vod_url);
 		char *substr = strstr(vod_url, "s=");
 		char num[20];
 		int i =0;

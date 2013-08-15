@@ -111,7 +111,6 @@ static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err)
 
 static char *vod_get_title_from_url(XLVod *vod, const char* url)
 {
-	xl_log(LOG_DEBUG, "url=%s\n", url);
 	if (!url)
 		return NULL;
 
@@ -168,11 +167,9 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	if (sessionid == NULL)
 		goto failed0;
 	name = vod_get_title_from_url(vod, url);
-	xl_log(LOG_NOTICE, "debug\n");
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
 
-	xl_log(LOG_NOTICE, "debug\n");
 	memset(post_data, '\0', sizeof(post_data));
 	char *en_url = xl_url_quote(url);
 	char *en_name = xl_url_quote(name);
@@ -225,6 +222,7 @@ static char *vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLEr
 	if (sessionid == NULL)
 		goto failed0;
 	name = vod_get_title_from_url(vod, url);
+	xl_log(LOG_NOTICE, "title is [%s]\n", name);
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
 
@@ -255,7 +253,6 @@ static char *vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLEr
 	}
 	body =  xl_http_get_body(req);
 	stream_url = json_parse_get_download_url(body, type);
-	xl_log(LOG_DEBUG, "stream_url=%s\n", stream_url);
 failed:
 	xl_http_free(req);
 failed2:
@@ -304,9 +301,9 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 	video_status = xl_vod_get_video_status(vod, real_url, err);
 	if (!(video_status == VIDEO_CONVERTED || video_status == VIDEO_READY || video_status == VIDEO_SEED_DOWNLOADED))
 	{
-		xl_log(LOG_NOTICE, "This video is not ready for play, please visit \"http://vod.xunlei.com/list.html#list=all&p=1\" for more info!\n");
 		s_free(real_url);
 		*err = XL_ERROR_VIDEO_NOT_READY;
+		xl_log(LOG_NOTICE, "This video is not ready for play, please visit \"http://vod.xunlei.com/list.html#list=all&p=1\" for more info!\n");
 		return video_url;
 	}
 
