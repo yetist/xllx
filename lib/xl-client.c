@@ -320,6 +320,7 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 	if (post_data != NULL)
 	{
 		char *post = s_strdup(post_data);
+		xl_log(LOG_NOTICE, "POST[%s]\n", post);
 		ret = xl_http_open(req, method, post);
 		s_free(post);
 	}else{
@@ -329,9 +330,9 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	if (xl_http_get_body_len(req) <= 2048)
+	if (xl_http_get_body_len(req) <= 9000)
 		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
-	client_show_cookie_names(req);
+	//client_show_cookie_names(req);
 	return req;
 failed:
 	xl_http_free(req);
@@ -485,9 +486,9 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-	if (xl_http_get_body_len(http) <= 2048)
+	if (xl_http_get_body_len(http) <= 6000)
 		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
-	client_show_cookie_names(http);
+	//client_show_cookie_names(http);
 	return http;
 failed:
 	xl_http_free(http);

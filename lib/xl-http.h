@@ -24,17 +24,7 @@
 #define XL_HTTP_H
 
 #include <ghttp.h>
-
-/* XL Error Code */
-typedef enum {
-    XL_ERROR_OK,
-    XL_ERROR_ERROR,
-    XL_ERROR_FILE_NOT_EXIST,
-    XL_ERROR_LOGIN_NEED_VC = 10,
-    XL_ERROR_LOGIN_EXPIRE,
-    XL_ERROR_NETWORK_ERROR = 20,
-    XL_ERROR_HTTP_ERROR = 30,
-} XLErrorCode;
+#include "xl-errors.h"
 
 typedef enum
 {

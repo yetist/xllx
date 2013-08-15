@@ -30,6 +30,8 @@
 #include "logger.h"
 #include "xl-url.h"
 
+static int src_url_cmp(const char *orig_url, const char *new_url);
+
 char *json_parse_bt_hash(const char* json_str)
 {
 	/*
@@ -266,7 +268,7 @@ int json_parse_has_url(const char *json_str, const char *url)
 					{
 						const char *src_url = json_object_get_string(jo_src_url);
 						char *uri = xl_url_unquote(src_url);
-						if (strcmp(uri, url) == 0)
+						if (src_url_cmp(uri, url) == 0)
 						{
 							ret = 0;
 						}
@@ -281,6 +283,42 @@ int json_parse_has_url(const char *json_str, const char *url)
 		json_object_put(jo_resp);
 	}
 	json_object_put(jsobj);
+	return ret;
+}
+
+static int src_url_cmp(const char *orig_url, const char *new_url)
+{
+	int ret = -1;
+	if (!orig_url || !new_url)
+		return ret;
+
+	if (strncmp(orig_url, "ed2k://", 7) == 0)
+	{
+		char *end;
+		char *src = strdup(orig_url);
+		char *dst = strdup(new_url);
+		char *p1 = src;
+		char *p2 = dst;
+
+		p1 = strchr(p1, '|'); p1++;
+		p1 = strchr(p1, '|'); p1++;
+		p1 = strchr(p1, '|'); p1++;
+		p1 = strchr(p1, '|'); p1++;
+		end = strchr(p1, '|'); *end = '\0';
+
+		p2 = strchr(p2, '|'); p2++;
+		p2 = strchr(p2, '|'); p2++;
+		p2 = strchr(p2, '|'); p2++;
+		p2 = strchr(p2, '|'); p2++;
+		end = strchr(p2, '|'); *end = '\0';
+
+		ret = strcmp(p1, p2);
+
+		free(src);
+		free(dst);
+	} else {
+		ret = strcmp(orig_url, new_url);
+	}
 	return ret;
 }
 
@@ -325,7 +363,7 @@ char *json_parse_get_url_hash(const char* json_str, const char *url)
 					{
 						const char *src_url = json_object_get_string(jo_src_url);
 						char *uri = xl_url_unquote(src_url);
-						if (strcmp(uri, url) == 0)
+						if (src_url_cmp(uri, url) == 0)
 						{
 							jo_url_hash = json_object_object_get(jo_history_play_list_n, "url_hash"); 
 							url_hash = s_strdup(json_object_get_string(jo_url_hash));

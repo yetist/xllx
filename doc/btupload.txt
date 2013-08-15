@@ -1,0 +1,8 @@
+bt文件上传：
+url: http://dynamic.vod.lixian.xunlei.com/interface/upload_bt?from=vlist&t=<时间戳>
+文件大小限制为6291456字节。
+POST数据：
+Filedata字段为文件名。
+
+返回值为JSON字符串。
+返回的infohash，用来生成bt://连接。

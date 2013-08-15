@@ -1,0 +1,5 @@
+获得bt文件hash方法：
+
+<a href="http://i.vod.xunlei.com/req_subBT/info_hash/B23DC247B279437C74F85E06B44E7D0A4BA40B88/req_num/30/req_offset/0">xxxxxxx</a>
+<a href="http://i.vod.xunlei.com/req_subBT/info_hash/F7A9D68D30FB05434F45C8272D61B0AC1A5D330D/req_num/30/req_offset/0">xxxxxxx2</a>
+
