@@ -268,7 +268,7 @@ int json_parse_has_url(const char *json_str, const char *url)
 					{
 						const char *src_url = json_object_get_string(jo_src_url);
 						char *uri = xl_url_unquote(src_url);
-						if (src_url_cmp(uri, url) == 0)
+						if (src_url_cmp(url, uri) == 0)
 						{
 							ret = 0;
 						}
@@ -312,12 +312,30 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 		p2 = strchr(p2, '|'); p2++;
 		end = strchr(p2, '|'); *end = '\0';
 
-		ret = strcmp(p1, p2);
+		ret = strcasecmp(p1, p2);
 
 		free(src);
 		free(dst);
+	}else if ((strncmp(orig_url, "magnet:", 7) == 0) && (strncmp(new_url, "bt://", 5) == 0)) {
+		char *end;
+		char *src = strdup(orig_url);
+		char *dst = strdup(new_url);
+		char *p1 = src;
+		char *p2 = dst;
+
+		p1 = strchr(p1, ':'); p1++;
+		p1 = strchr(p1, ':'); p1++;
+		p1 = strchr(p1, ':'); p1++;
+		end = strchr(p1, '&'); *end = '\0';
+
+		p2 = strchr(p2, '/'); p2++;
+		p2 = strchr(p2, '/'); p2++;
+
+		ret = strcasecmp(p1, p2);
+		free(src);
+		free(dst);
 	} else {
-		ret = strcmp(orig_url, new_url);
+		ret = strcasecmp(orig_url, new_url);
 	}
 	return ret;
 }
@@ -363,7 +381,7 @@ char *json_parse_get_url_hash(const char* json_str, const char *url)
 					{
 						const char *src_url = json_object_get_string(jo_src_url);
 						char *uri = xl_url_unquote(src_url);
-						if (src_url_cmp(uri, url) == 0)
+						if (src_url_cmp(url, uri) == 0)
 						{
 							jo_url_hash = json_object_object_get(jo_history_play_list_n, "url_hash"); 
 							url_hash = s_strdup(json_object_get_string(jo_url_hash));
@@ -431,6 +449,57 @@ char *json_parse_get_name(const char *json_str)
 	}
 	json_object_put(jsobj);
 	return name;
+}
+
+char *json_parse_get_real_url(const char *json_str)
+{
+	/*
+	 *
+	 * json_str is {"resp": {"res": [{"url": "thunder%3A%2F%2FQUFodHRwOi...12Ylpa", "result": 0, "id": 0, "name": "\u4e2d\u56fd\u5408\u4f19\u4ebaBD.rmvb"}], "ret": 0}}
+	 * return resp->res->0->${url}
+	 *
+	 */
+	char *url = NULL;
+	struct json_object *jsobj;
+	struct json_object *jo_resp;
+	struct json_object *jo_res;
+	struct json_object *jo_res_n;
+	struct json_object *jo_url;
+
+	if (!json_str)
+		return url;
+
+	jsobj = json_tokener_parse(json_str);
+	if( is_error(jsobj) || !jsobj)
+	{
+		json_object_put(jsobj);
+		return url;
+	}
+	jo_resp = json_object_object_get(jsobj, "resp");
+	if (jo_resp)
+	{
+		jo_res = json_object_object_get(jo_resp, "res"); 
+		if (jo_res)
+		{
+			jo_res_n = json_object_array_get_idx(jo_res, 0);
+			if (jo_res_n)
+			{
+				jo_url = json_object_object_get(jo_res_n, "url"); 
+				if (jo_url)
+				{
+					if (url!= NULL)
+						s_free(url);
+					url = strdup(json_object_get_string(jo_url));
+					json_object_put(jo_url);
+				}
+				json_object_put(jo_res_n);
+			}
+			json_object_put(jo_res);
+		}
+		json_object_put(jo_resp);
+	}
+	json_object_put(jsobj);
+	return url;
 }
 
 char *json_parse_get_download_url(const char *json_str, VideoType type)

@@ -34,8 +34,8 @@
 #include "xl-utils.h"
 #include "logger.h"
 
-#define XL_HTTP_USER_AGENT "User-Agent: Mozilla/5.0 \
-	(X11; Linux x86_64; rv:10.0) Gecko/20100101 Firefox/10.0"
+#define XL_HTTP_USER_AGENT "User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1500.95 Safari/537.36"
+
 
 #define CHUNK 1024 * 1024
 #define UPLOAD_FILE_MAX_SIZE 6291456

@@ -48,7 +48,7 @@ struct _XLVod
 };
 
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
-static char *vod_get_title_from_url(XLVod *vod, const char* url);
+static char *vod_get_title_from_url(XLVod *vod, const char* url, char **real_url);
 static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
 static char* vod_upload_bt_file(XLVod *vod, const char *path);
 static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err);
@@ -98,8 +98,8 @@ failed:
 static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err)
 {
 	char* list = vod_list_all_videos(vod, err);
-	if (list == NULL)
-		return -1;
+	while (list == NULL)
+		list = vod_list_all_videos(vod, err);
 	if(json_parse_has_url(list, url) == 0)
 	{
 		s_free(list);
@@ -109,13 +109,13 @@ static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err)
 	return -1;
 }
 
-static char *vod_get_title_from_url(XLVod *vod, const char* url)
+static char *vod_get_title_from_url(XLVod *vod, const char* url, char **real_url)
 {
 	if (!url)
 		return NULL;
 
 	char post_data[1024];
-	char post_url[256];
+	char post_url[1024];
 	char *body;
 	char *name = NULL;
 	char *en_url;
@@ -139,6 +139,9 @@ static char *vod_get_title_from_url(XLVod *vod, const char* url)
 
 	body = xl_http_get_body(req);
 	name = json_parse_get_name(body);
+	if (real_url && *real_url)
+		*real_url = json_parse_get_real_url(body);
+
 failed:
 	xl_http_free(req);
 	return name;
@@ -159,6 +162,7 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	if (url == NULL)
 		return -1;
 	
+	printf("****************add video\n");
 	cookies = xl_client_get_cookies(vod->client);
 	userid = xl_cookies_get_userid(cookies);
 	if (userid == NULL)
@@ -166,7 +170,7 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	sessionid = xl_cookies_get_sessionid(cookies);
 	if (sessionid == NULL)
 		goto failed0;
-	name = vod_get_title_from_url(vod, url);
+	name = vod_get_title_from_url(vod, url, NULL);
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
 
@@ -221,8 +225,8 @@ static char *vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLEr
 	sessionid = xl_cookies_get_sessionid(cookies);
 	if (sessionid == NULL)
 		goto failed0;
-	name = vod_get_title_from_url(vod, url);
-	xl_log(LOG_NOTICE, "title is [%s]\n", name);
+	name = vod_get_title_from_url(vod, url, NULL);
+	printf("title is [%s]\n", name);
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
 
@@ -288,6 +292,20 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 		return video_url;
 	}
 
+	char *name;
+	char *url2;
+	name = vod_get_title_from_url(vod, real_url, &url2);
+	if ((strncmp(real_url, "http://", 7) == 0) && (strncmp(url2, "bt://", 5) == 0))
+	{
+		printf("real_url=%s, url2=%s\n", real_url, url2);
+		/* 特殊情况：
+		 * 如果一个http://开头的链接是bt文件下载地址的话，拿到的云点播列表中的src_url将会以bt://表示，而不是原http地址
+		 */
+		s_free(real_url);
+		real_url = url2;
+	}
+	s_free(name);
+
 	if (xl_vod_has_video(vod, real_url, err) != 0)
 	{
 		if (xl_vod_add_video(vod, real_url, err) != 0)
@@ -303,7 +321,7 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 	{
 		s_free(real_url);
 		*err = XL_ERROR_VIDEO_NOT_READY;
-		xl_log(LOG_NOTICE, "This video is not ready for play, please visit \"http://vod.xunlei.com/list.html#list=all&p=1\" for more info!\n");
+		xl_log(LOG_NOTICE, "This video is not ready for play[%d], please visit \"http://vod.xunlei.com/list.html#list=all&p=1\" for more info!\n", video_status);
 		return video_url;
 	}
 
@@ -331,9 +349,11 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *er
 	XLHttp *http;
 
 	list = vod_list_all_videos(vod, err);
-	if (list == NULL){
-		return status;
-	}
+	while (list == NULL)
+		list = vod_list_all_videos(vod, err);
+//	if (list == NULL){
+//		return status;
+//	}
 	url_hash = json_parse_get_url_hash(list, url);
 	if (url_hash == NULL){
 		s_free(list);
