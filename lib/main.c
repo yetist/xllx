@@ -34,7 +34,7 @@ char video_urls[][600] = {
 	{0},
 };
 
-void test_client(const char* username, const char* password)
+void test_client(const char* username, const char* password, const char *url)
 {
 	XLClient *client;
 	XLErrorCode err = 0;
@@ -56,6 +56,7 @@ void test_client(const char* username, const char* password)
 				fflush(stdin);
 				printf("please input the verify code(see /tmp/vcode.jpg):");
 				fgets(buf, 5, stdin);
+				buf[4] = '\0';
 			}while(strlen(buf) != 4);
 			printf("vcode=%s\n", buf);
 			xl_client_set_verify_code(client, buf);
@@ -70,41 +71,38 @@ void test_client(const char* username, const char* password)
 	}
 	XLVod *vod;
 	vod = xl_vod_new(client);
-	int i = 0;
 	char *vurl;
-	while (video_urls[i] && *(video_urls[i]))
-	{
-		printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  video_urls[%d]=%s\n", i, video_urls[i]);
-		vurl = xl_vod_get_video_url(vod, video_urls[i], VIDEO_1080P, &err);
-		if (vurl == NULL)
-		{
-			if (err == XL_ERROR_VIDEO_NOT_READY) {
-				//VideoStatus status;
-				//status = xl_vod_get_video_status(vod, video_urls[i], &err);
-				//printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video is not ready, status=%d\n", status);
-			} else if (err == XL_ERROR_VIDEO_URL_NOT_ALLOWED) {
-				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video url is not allowed\n");
-			} else if (err == XL_ERROR_VIDEO_ADD_FAILED) {
-				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
-			} else {
-				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  got an error, error code is %d\n", err);
-			}
 
+	vurl = xl_vod_get_video_url(vod, url, VIDEO_1080P, &err);
+	if (vurl == NULL)
+	{
+		if (err == XL_ERROR_VIDEO_NOT_READY) {
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video is not ready\n");
+		} else if (err == XL_ERROR_VIDEO_URL_NOT_ALLOWED) {
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video url is not allowed\n");
+		} else if (err == XL_ERROR_VIDEO_ADD_FAILED) {
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
 		} else {
-			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  play_url is %s\n", vurl);
-			free(vurl);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  got an error, error code is %d\n", err);
 		}
-		i++;
+
+	} else {
+		printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  play_url is %s\n", vurl);
+		free(vurl);
 	}
 }
 
 int main(int argc, char** argv)
 {
-	if (argc != 3)
+	if (argc != 4)
+	{
+		fprintf(stderr, "Usage:\n\t%s <username> <userpassword> <source url|torrent path>\n\n", argv[0]);
 		return -1;
+	}
 
 	char *username = argv[1];
 	char *password = argv[2];
-	test_client(username, password);
+	char *url = argv[3];
+	test_client(username, password, url);
 	return 0;
 }

@@ -331,6 +331,8 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 		{
 			video_url = xl_vod_get_video_url(vod, real_url, type, err);
 			s_free(real_url);
+			if (video_url == NULL)
+				*err = XL_ERROR_VIDEO_NOT_READY;
 			return video_url;
 		} else {
 			s_free(real_url);
@@ -364,6 +366,8 @@ begin:
 		return video_url;
 	}
 	video_url = vod_get_video_url(vod, url, type, err);
+	if (video_url == NULL)
+		*err = XL_ERROR_VIDEO_NOT_READY;
 	return video_url;
 }
 
@@ -384,7 +388,7 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url
 	XLHttp *http;
 
 	char *uhash;
-	if (url_hash != NULL)
+	if (url_hash == NULL)
 	{
 		char *list;
 		int try = 0;
