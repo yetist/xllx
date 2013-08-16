@@ -283,11 +283,13 @@ static void client_show_cookie_names(XLHttp *request)
  * */
 XLHttp *xl_client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err)
 {
+#if 0
 	if (client_has_logged_in(client) != 0)
 	{
 		*err = XL_ERROR_LOGIN_EXPIRE;
 		return NULL;
 	}
+#endif
 	return client_open_url(client, url, method, post_data, refer, err);
 }
 
@@ -305,7 +307,7 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 	if (!req) {
 		goto failed;
 	}
-    //xl_log(LOG_NOTICE, "URL[%s]\n", url);
+    xl_log(LOG_NOTICE, "URL[%s]\n", url);
     cookies = xl_cookies_get_string_line(client->cookies);
     if (cookies != NULL) {
 		//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
@@ -329,8 +331,8 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-//	if (xl_http_get_body_len(req) <= 9000)
-//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
+	if (xl_http_get_body_len(req) <= 9000)
+		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
 	//client_show_cookie_names(req);
 	return req;
 failed:

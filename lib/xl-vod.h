@@ -55,7 +55,8 @@ void   xl_vod_free(XLVod *vod);
 
 //char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type);
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err);
-VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *err);
+//VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *err);
+VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url_hash, XLErrorCode *err);
 
 
 #endif /* __XL_VOD_H__ */

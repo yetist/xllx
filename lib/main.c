@@ -29,8 +29,8 @@ char video_urls[][600] = {
 	//"thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NUMwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa",
 	"magnet:?xt=urn:btih:32dbf49152cf116cbc0f0cfcf502ce288d3e56ad&tr.0=http://tracker.openbittorrent.com/announce&tr.1=udp://tracker.openbittorrent.com:80/announce&tr.2=http://tracker.thepiratebay.org/announce&tr.3=http://tracker.publicbt.com/announce&tr.4=http://tracker.prq.to/announce&tr.5=udp://tracker.publicbt.com:80/announce",
 	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333350&aid=225934",
-//	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333635&aid=226138",
-//	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333636&aid=226139",
+	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333635&aid=226138",
+	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333636&aid=226139",
 	{0},
 };
 

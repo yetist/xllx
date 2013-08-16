@@ -27,10 +27,11 @@
 char *json_parse_bt_hash(const char* json_str);
 int json_parse_bt_index(const char* json_str);
 int json_parse_get_return_code(const char* json_str);
-int json_parse_has_url(const char *json_str, const char *url);
+//int json_parse_has_url(const char *json_str, const char *url);
+int json_parse_has_url(const char *json_str, const char *url, char **url_hash);
 int json_parse_get_name_and_url(const char *json_str, char **name, char **url);
 char *json_parse_get_download_url(const char *json_str, VideoType type);
-char *json_parse_get_url_hash(const char* json_str, const char *url);
+//char *json_parse_get_url_hash(const char* json_str, const char *url);
 VideoStatus json_parse_get_video_status(const char *json_str);
 
 #endif /* __XL_JSON_H__ */

@@ -51,7 +51,7 @@ static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
 static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url);
 static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
 static char* vod_upload_bt_file(XLVod *vod, const char *path);
-static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err);
+static int xl_vod_has_video(XLVod *vod, const char* url, char** url_hash, XLErrorCode *err);
 static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err);
 
 XLVod* xl_vod_new(XLClient *client)
@@ -95,12 +95,12 @@ failed:
 	return NULL;
 }
 
-static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err)
+static int xl_vod_has_video(XLVod *vod, const char* url, char** url_hash, XLErrorCode *err)
 {
 	char* list = vod_list_all_videos(vod, err);
 	while (list == NULL)
 		list = vod_list_all_videos(vod, err);
-	if(json_parse_has_url(list, url) == 0)
+	if(json_parse_has_url(list, url, url_hash) == 0)
 	{
 		s_free(list);
 		return 0;
@@ -143,7 +143,9 @@ static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char 
 	}
 
 	body = xl_http_get_body(req);
+	xl_log(LOG_DEBUG, "debug\n");
 	ret = json_parse_get_name_and_url(body, name, real_url);
+	xl_log(LOG_DEBUG, "debug, real_url=%s\n", real_url);
 
 failed:
 	xl_http_free(req);
@@ -278,6 +280,7 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 {
 	VideoStatus video_status;
 	char *video_url = NULL;
+	char *url_hash;
 	if (!url)
 		return NULL;
 
@@ -298,6 +301,7 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 	{
 		char *real_url;
 		vod_get_title_and_url(vod, url, NULL, &real_url);
+		printf(">>>>>>>>>>>real_url=%s\n", real_url);
 		if (strncasecmp(url, real_url, strlen(real_url)) != 0)
 		{
 			video_url = xl_vod_get_video_url(vod, real_url, type, err);
@@ -312,7 +316,8 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 		return video_url;
 	}
 begin:
-	if (xl_vod_has_video(vod, url, err) != 0)
+	// url参数与迅雷使用的src_url一致，开始正式处理
+	if (xl_vod_has_video(vod, url, &url_hash, err) != 0)
 	{
 		if (xl_vod_add_video(vod, url, err) != 0)
 		{
@@ -320,7 +325,11 @@ begin:
 			return video_url;
 		}
 	}
-	video_status = xl_vod_get_video_status(vod, url, err);
+
+	if (url_hash != NULL)
+	{
+		video_status = xl_vod_get_video_status(vod, url, url_hash, err);
+	}
 	if (!(video_status == VIDEO_CONVERTED || video_status == VIDEO_READY || video_status == VIDEO_SEED_DOWNLOADED))
 	{
 		*err = XL_ERROR_VIDEO_NOT_READY;
@@ -331,7 +340,7 @@ begin:
 	return video_url;
 }
 
-VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *err)
+VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url_hash, XLErrorCode *err)
 {
 	/*
 	 * url is: http://i.vod.xunlei.com/req_progress_query?&t=1376470919270
@@ -342,25 +351,31 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *er
 	 *
 	 */
 	VideoStatus status = 2;
-	char *list;
-	char *url_hash;
 	char *body;
 	char post_data[1024];
 	char post_url[1024];
 	XLHttp *http;
 
-	list = vod_list_all_videos(vod, err);
-	while (list == NULL)
+	char *uhash;
+	if (url_hash == NULL)
+	{
+		char *list;
 		list = vod_list_all_videos(vod, err);
-//	if (list == NULL){
-//		return status;
-//	}
-	url_hash = json_parse_get_url_hash(list, url);
-	if (url_hash == NULL){
+		while (list == NULL)
+			list = vod_list_all_videos(vod, err);
+		//	if (list == NULL){
+		//		return status;
+		//	}
+		json_parse_has_url(list, url, &uhash);
+		if (uhash == NULL){
+			s_free(list);
+			return status;
+		}
 		s_free(list);
-		return status;
+	} else {
+		uhash = s_strdup(url_hash);
 	}
-	snprintf(post_data, sizeof(post_data), "{\"req\":{\"url_hash_list\":[\"%s\"],\"platform\":0}}", url_hash);
+	snprintf(post_data, sizeof(post_data), "{\"req\":{\"url_hash_list\":[\"%s\"],\"platform\":0}}", uhash);
 	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_progress_query?&t=%ld", get_current_timestamp());
 
 	http = xl_client_open_url(vod->client, post_url, HTTP_POST, post_data, NULL, err);
@@ -375,8 +390,7 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *er
 	body = xl_http_get_body(http);
 	status = json_parse_get_video_status(body);
 failed:
-	s_free(list);
-	s_free(url_hash);
+	s_free(uhash);
 	xl_http_free(http);
 	return status;
 }

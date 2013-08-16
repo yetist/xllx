@@ -171,7 +171,17 @@ int json_parse_get_return_code(const char* json_str)
 	return ret;
 }
 
-int json_parse_has_url(const char *json_str, const char *url)
+/**
+ * json_parse_has_url:
+ * @json_str: 
+ * @url: 
+ * @url_hash: return url_hash.
+ *
+ * 
+ *
+ * Return value: has url return 0; else -1;
+ **/
+int json_parse_has_url(const char *json_str, const char *url, char **url_hash)
 {
 	/*
 	 *
@@ -240,14 +250,19 @@ int json_parse_has_url(const char *json_str, const char *url)
 	struct json_object *jo_history_play_list;
 	struct json_object *jo_history_play_list_n;
 	struct json_object *jo_src_url;
+	struct json_object *jo_url_hash;
 
 	if (!json_str || !url)
+	{
+		if (url_hash) *url_hash = NULL;
 		return -1;
+	}
 
 	jsobj = json_tokener_parse(json_str);
 	if(is_error(jsobj) || !jsobj)
 	{
 		json_object_put(jsobj);
+		if (url_hash) *url_hash = NULL;
 		return -1;
 	}
 
@@ -270,6 +285,15 @@ int json_parse_has_url(const char *json_str, const char *url)
 						char *uri = xl_url_unquote(src_url);
 						if (src_url_cmp(url, uri) == 0)
 						{
+							if (url_hash)
+							{
+								jo_url_hash = json_object_object_get(jo_history_play_list_n, "url_hash"); 
+								if (jo_url_hash)
+								{
+									*url_hash = s_strdup(json_object_get_string(jo_url_hash));
+									json_object_put(jo_url_hash);
+								}
+							}
 							ret = 0;
 						}
 						s_free(uri);
@@ -312,7 +336,7 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 		p2 = strchr(p2, '|'); p2++;
 		end = strchr(p2, '|'); *end = '\0';
 
-		ret = strcasecmp(p1, p2);
+		ret = strncasecmp(p1, p2, strlen(p1));
 
 		free(src);
 		free(dst);
@@ -331,15 +355,16 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 		p2 = strchr(p2, '/'); p2++;
 		p2 = strchr(p2, '/'); p2++;
 
-		ret = strcasecmp(p1, p2);
+		ret = strncasecmp(p1, p2, strlen(p1));
 		free(src);
 		free(dst);
 	} else {
-		ret = strcasecmp(orig_url, new_url);
+		ret = strncasecmp(orig_url, new_url, strlen(orig_url));
 	}
 	return ret;
 }
 
+#if 0
 char *json_parse_get_url_hash(const char* json_str, const char *url)
 {
 	/*
@@ -399,6 +424,7 @@ char *json_parse_get_url_hash(const char* json_str, const char *url)
 	json_object_put(jsobj);
 	return url_hash;
 }
+#endif
 
 /**
  * json_parse_get_name_and_url:
@@ -427,8 +453,8 @@ int json_parse_get_name_and_url(const char *json_str, char **name, char **url)
 
 	if (!json_str)
 	{
-		*name = NULL;
-		*url = NULL;
+		if (name) *name = NULL;
+		if (url) *url = NULL;
 		return found;
 	}
 
@@ -436,8 +462,8 @@ int json_parse_get_name_and_url(const char *json_str, char **name, char **url)
 	if( is_error(jsobj) || !jsobj)
 	{
 		json_object_put(jsobj);
-		*name = NULL;
-		*url = NULL;
+		if (name) *name = NULL;
+		if (url) *url = NULL;
 		return found;
 	}
 	jo_resp = json_object_object_get(jsobj, "resp");
@@ -449,7 +475,7 @@ int json_parse_get_name_and_url(const char *json_str, char **name, char **url)
 			jo_res_n = json_object_array_get_idx(jo_res, 0);
 			if (jo_res_n)
 			{
-				if (name && *name)
+				if (name)
 				{
 					jo_name = json_object_object_get(jo_res_n, "name"); 
 					if (jo_name)
@@ -461,7 +487,7 @@ int json_parse_get_name_and_url(const char *json_str, char **name, char **url)
 						*name = NULL;
 					}
 				}
-				if (url && *url)
+				if (url)
 				{
 					jo_url = json_object_object_get(jo_res_n, "url"); 
 					if (jo_url)
