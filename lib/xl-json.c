@@ -400,80 +400,45 @@ char *json_parse_get_url_hash(const char* json_str, const char *url)
 	return url_hash;
 }
 
-char *json_parse_get_name(const char *json_str)
+/**
+ * json_parse_get_name_and_url:
+ * @json_str: 
+ * @name: filled with name, should free it.
+ * @url: filled with url, should free it.
+ *
+ * from json return name and url.
+ *
+ * Return value: error return -1; if name return 1, if url return 2;
+ **/
+int json_parse_get_name_and_url(const char *json_str, char **name, char **url)
 {
 	/*
-	 *
 	 * json_str is {"resp": {"res": [{"url": "thunder%3A%2F%2FQUFodHRwOi...12Ylpa", "result": 0, "id": 0, "name": "\u4e2d\u56fd\u5408\u4f19\u4ebaBD.rmvb"}], "ret": 0}}
 	 * return resp->res->0->${name}
 	 *
 	 */
-	char *name = NULL;
+	int found = -1;
 	struct json_object *jsobj;
 	struct json_object *jo_resp;
 	struct json_object *jo_res;
 	struct json_object *jo_res_n;
 	struct json_object *jo_name;
-
-	if (!json_str)
-		return name;
-
-	jsobj = json_tokener_parse(json_str);
-	if( is_error(jsobj) || !jsobj)
-	{
-		json_object_put(jsobj);
-		return name;
-	}
-	jo_resp = json_object_object_get(jsobj, "resp");
-	if (jo_resp)
-	{
-		jo_res = json_object_object_get(jo_resp, "res"); 
-		if (jo_res)
-		{
-			jo_res_n = json_object_array_get_idx(jo_res, 0);
-			if (jo_res_n)
-			{
-				jo_name = json_object_object_get(jo_res_n, "name"); 
-				if (jo_name)
-				{
-					if (name != NULL)
-						s_free(name);
-					name = strdup(json_object_get_string(jo_name));
-					json_object_put(jo_name);
-				}
-				json_object_put(jo_res_n);
-			}
-			json_object_put(jo_res);
-		}
-		json_object_put(jo_resp);
-	}
-	json_object_put(jsobj);
-	return name;
-}
-
-char *json_parse_get_real_url(const char *json_str)
-{
-	/*
-	 *
-	 * json_str is {"resp": {"res": [{"url": "thunder%3A%2F%2FQUFodHRwOi...12Ylpa", "result": 0, "id": 0, "name": "\u4e2d\u56fd\u5408\u4f19\u4ebaBD.rmvb"}], "ret": 0}}
-	 * return resp->res->0->${url}
-	 *
-	 */
-	char *url = NULL;
-	struct json_object *jsobj;
-	struct json_object *jo_resp;
-	struct json_object *jo_res;
-	struct json_object *jo_res_n;
 	struct json_object *jo_url;
 
 	if (!json_str)
-		return url;
+	{
+		*name = NULL;
+		*url = NULL;
+		return found;
+	}
 
 	jsobj = json_tokener_parse(json_str);
 	if( is_error(jsobj) || !jsobj)
 	{
 		json_object_put(jsobj);
-		return url;
+		*name = NULL;
+		*url = NULL;
+		return found;
 	}
 	jo_resp = json_object_object_get(jsobj, "resp");
 	if (jo_resp)
@@ -484,13 +449,29 @@ char *json_parse_get_real_url(const char *json_str)
 			jo_res_n = json_object_array_get_idx(jo_res, 0);
 			if (jo_res_n)
 			{
-				jo_url = json_object_object_get(jo_res_n, "url"); 
-				if (jo_url)
+				if (name && *name)
 				{
-					if (url!= NULL)
-						s_free(url);
-					url = strdup(json_object_get_string(jo_url));
-					json_object_put(jo_url);
+					jo_name = json_object_object_get(jo_res_n, "name"); 
+					if (jo_name)
+					{
+						*name = xl_url_unquote(json_object_get_string(jo_name));
+						json_object_put(jo_name);
+						found = 1;
+					} else {
+						*name = NULL;
+					}
+				}
+				if (url && *url)
+				{
+					jo_url = json_object_object_get(jo_res_n, "url"); 
+					if (jo_url)
+					{
+						*url = strdup(json_object_get_string(jo_url));
+						json_object_put(jo_url);
+						found = 2;
+					} else {
+						*url = NULL;
+					}
 				}
 				json_object_put(jo_res_n);
 			}
@@ -499,7 +480,7 @@ char *json_parse_get_real_url(const char *json_str)
 		json_object_put(jo_resp);
 	}
 	json_object_put(jsobj);
-	return url;
+	return found;
 }
 
 char *json_parse_get_download_url(const char *json_str, VideoType type)

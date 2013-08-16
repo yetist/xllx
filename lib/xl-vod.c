@@ -48,7 +48,7 @@ struct _XLVod
 };
 
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
-static char *vod_get_title_from_url(XLVod *vod, const char* url, char **real_url);
+static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url);
 static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
 static char* vod_upload_bt_file(XLVod *vod, const char *path);
 static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err);
@@ -109,23 +109,28 @@ static int xl_vod_has_video(XLVod *vod, const char* url, XLErrorCode *err)
 	return -1;
 }
 
-static char *vod_get_title_from_url(XLVod *vod, const char* url, char **real_url)
+static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url)
 {
-	if (!url)
-		return NULL;
-
 	char post_data[1024];
 	char post_url[1024];
 	char *body;
-	char *name = NULL;
+	int ret = -1;
 	char *en_url;
 	XLHttp *req;
 	XLErrorCode err;
 
+	if (!url)
+		return ret;
+
 	memset(post_data, '\0', sizeof(post_data));
-	en_url = xl_url_quote(url);
-	snprintf(post_data, sizeof(post_data), "{\"urls\":[{\"id\":0, \"url\":\"%s\"}]}", en_url);
-	s_free(en_url);
+	if (strncmp(url, "magnet:", 7) == 0)
+	{
+		snprintf(post_data, sizeof(post_data), "{\"urls\":[{\"id\":0, \"url\":\"%s\"}]}", url);
+	} else {
+		en_url = xl_url_quote(url);
+		snprintf(post_data, sizeof(post_data), "{\"urls\":[{\"id\":0, \"url\":\"%s\"}]}", en_url);
+		s_free(en_url);
+	}
 
 	memset(post_url, '\0', sizeof(post_url));
 	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_video_name?from=vlist&platform=0");
@@ -138,13 +143,11 @@ static char *vod_get_title_from_url(XLVod *vod, const char* url, char **real_url
 	}
 
 	body = xl_http_get_body(req);
-	name = json_parse_get_name(body);
-	if (real_url && *real_url)
-		*real_url = json_parse_get_real_url(body);
+	ret = json_parse_get_name_and_url(body, name, real_url);
 
 failed:
 	xl_http_free(req);
-	return name;
+	return ret;
 }
 
 static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
@@ -170,7 +173,7 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	sessionid = xl_cookies_get_sessionid(cookies);
 	if (sessionid == NULL)
 		goto failed0;
-	name = vod_get_title_from_url(vod, url, NULL);
+	vod_get_title_and_url(vod, url, &name, NULL);
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
 
@@ -225,7 +228,7 @@ static char *vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLEr
 	sessionid = xl_cookies_get_sessionid(cookies);
 	if (sessionid == NULL)
 		goto failed0;
-	name = vod_get_title_from_url(vod, url, NULL);
+	vod_get_title_and_url(vod, url, &name, NULL);
 	printf("title is [%s]\n", name);
 	if (name == NULL || strcmp(name, "") == 0 )
 		goto failed1;
@@ -275,58 +278,56 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 {
 	VideoStatus video_status;
 	char *video_url = NULL;
-	char *real_url = NULL;
 	if (!url)
 		return NULL;
 
-	if (re_match("(^xlpan://|^thunder://|^ftp://|^http://|^https://|^ed2k://|^mms://|^magnet:|^rtsp://|^Flashget://|^flashget://|^qqdl://|^bt://|^xlpan%3A%2F%2F|^thunder%3A%2F%2F|^ftp%3A%2F%2F|^http%3A%2F%2F|^https%3A%2F%2F|^ed2k%3A%2F%2F|^mms%3A%2F%2F|^magnet%3A|^rtsp%3A%2F%2F|^Flashget%3A%2F%2F|^flashget%3A%2F%2F|^qqdl%3A%2F%2F|^bt%3A%2F%2F)*", url) == 0)
+	// BT 文件单独处理。先上传，得到bt_url之后再调用本函数。
+	if (re_match("(^file:///|^/).*torrent", url) == 0)
 	{
-		real_url = s_strdup(url);
-	} else if (re_match("(^file:///|^/)*.torrent", url) == 0)
-	{
+		char *real_url = NULL;
 		real_url = vod_upload_bt_file(vod, url);
 		if (real_url == NULL)
 			return video_url;
+		video_url = xl_vod_get_video_url(vod, real_url, type, err);
+		s_free(real_url);
+		return video_url;
+	}
+
+	// 处理普通网址下载了特殊文件(如BT)而非电影，从而导致迅雷返回的src_url不统一的问题。
+	if (re_match("(^xlpan://|^thunder://|^ftp://|^http://|^https://|^ed2k://|^mms://|^magnet:|^rtsp://|^Flashget://|^flashget://|^qqdl://|^bt://|^xlpan%3A%2F%2F|^thunder%3A%2F%2F|^ftp%3A%2F%2F|^http%3A%2F%2F|^https%3A%2F%2F|^ed2k%3A%2F%2F|^mms%3A%2F%2F|^magnet%3A|^rtsp%3A%2F%2F|^Flashget%3A%2F%2F|^flashget%3A%2F%2F|^qqdl%3A%2F%2F|^bt%3A%2F%2F).*", url) == 0)
+	{
+		char *real_url;
+		vod_get_title_and_url(vod, url, NULL, &real_url);
+		if (strncasecmp(url, real_url, strlen(real_url)) != 0)
+		{
+			video_url = xl_vod_get_video_url(vod, real_url, type, err);
+			s_free(real_url);
+			return video_url;
+		} else {
+			s_free(real_url);
+			goto begin;
+		}
 	} else {
 		*err = XL_ERROR_VIDEO_URL_NOT_ALLOWED;
 		return video_url;
 	}
-
-	char *name;
-	char *url2;
-	name = vod_get_title_from_url(vod, real_url, &url2);
-	if ((strncmp(real_url, "http://", 7) == 0) && (strncmp(url2, "bt://", 5) == 0))
+begin:
+	if (xl_vod_has_video(vod, url, err) != 0)
 	{
-		printf("real_url=%s, url2=%s\n", real_url, url2);
-		/* 特殊情况：
-		 * 如果一个http://开头的链接是bt文件下载地址的话，拿到的云点播列表中的src_url将会以bt://表示，而不是原http地址
-		 */
-		s_free(real_url);
-		real_url = url2;
-	}
-	s_free(name);
-
-	if (xl_vod_has_video(vod, real_url, err) != 0)
-	{
-		if (xl_vod_add_video(vod, real_url, err) != 0)
+		if (xl_vod_add_video(vod, url, err) != 0)
 		{
-			s_free(real_url);
 			*err = XL_ERROR_VIDEO_ADD_FAILED;
 			return video_url;
 		}
 	}
-
-	video_status = xl_vod_get_video_status(vod, real_url, err);
+	video_status = xl_vod_get_video_status(vod, url, err);
 	if (!(video_status == VIDEO_CONVERTED || video_status == VIDEO_READY || video_status == VIDEO_SEED_DOWNLOADED))
 	{
-		s_free(real_url);
 		*err = XL_ERROR_VIDEO_NOT_READY;
 		xl_log(LOG_NOTICE, "This video is not ready for play[%d], please visit \"http://vod.xunlei.com/list.html#list=all&p=1\" for more info!\n", video_status);
 		return video_url;
 	}
-
-	video_url = vod_get_video_url(vod, real_url, type, err);
-	s_free(real_url);
+	video_url = vod_get_video_url(vod, url, type, err);
 	return video_url;
 }
 
