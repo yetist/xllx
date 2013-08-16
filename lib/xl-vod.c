@@ -115,6 +115,7 @@ static int xl_vod_has_video(XLVod *vod, const char* url, char** url_hash, XLErro
 
 	if(json_parse_has_url(list, url, url_hash) == 0)
 	{
+		xl_log(LOG_DEBUG, "url_hash=%s\n", url_hash);
 		s_free(list);
 		return 0;
 	}
@@ -173,7 +174,7 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	char *response;
 	char *userid;
 	char *sessionid;
-	char post_data[1024];
+	char post_data[4096];
 	char p_url[256];
 
 	XLCookies *cookies;
@@ -212,6 +213,7 @@ static int xl_vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 		goto failed;
 	}
 	response = xl_http_get_body(req);
+	xl_log(LOG_DEBUG, "body is %s\n", response);
 	if (json_parse_get_return_code(response) == 0)
 	{
 		xl_http_free(req);
@@ -301,7 +303,7 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 {
 	VideoStatus video_status;
 	char *video_url = NULL;
-	char *url_hash;
+	char *url_hash = NULL;
 	if (!url)
 		return NULL;
 
@@ -318,6 +320,9 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 	}
 
 	// 处理普通网址下载了特殊文件(如BT)而非电影，从而导致迅雷返回的src_url不统一的问题。
+	// FIXME: 这是个重大bug，原始url和迅雷服务器上登记的源url不一致，导致无法根据自己的原始url拿到对应的视频进行处理。
+	// 迅雷云点播的界面设计，不存在这个问题。原因是用户观看时，先提交Url，然后在列表页面中主动选择视频然后点击观看。而非提交一个原始链接直接打开播放器开始播放此视频。
+	// 为了达到直接提交一个原始链接，并正确获得其播放地址，有必要每次提交前清空云点播列表。但这对以后写桌面版本播放器不利。
 	if (re_match("(^xlpan://|^thunder://|^ftp://|^http://|^https://|^ed2k://|^mms://|^magnet:|^rtsp://|^Flashget://|^flashget://|^qqdl://|^bt://|^xlpan%3A%2F%2F|^thunder%3A%2F%2F|^ftp%3A%2F%2F|^http%3A%2F%2F|^https%3A%2F%2F|^ed2k%3A%2F%2F|^mms%3A%2F%2F|^magnet%3A|^rtsp%3A%2F%2F|^Flashget%3A%2F%2F|^flashget%3A%2F%2F|^qqdl%3A%2F%2F|^bt%3A%2F%2F).*", url) == 0)
 	{
 		char *real_url;
@@ -355,8 +360,10 @@ begin:
 
 	if (url_hash != NULL)
 	{
+		xl_log(LOG_DEBUG, "debug, url_hash=%s\n", url_hash);
 		video_status = xl_vod_get_video_status(vod, url, url_hash, err);
 	} else {
+		xl_log(LOG_DEBUG, "debug\n");
 		video_status = xl_vod_get_video_status(vod, url, NULL, err);
 	}
 	if (!(video_status == VIDEO_CONVERTED || video_status == VIDEO_READY || video_status == VIDEO_SEED_DOWNLOADED))
@@ -390,6 +397,7 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url
 	char *uhash;
 	if (url_hash == NULL)
 	{
+		xl_log(LOG_DEBUG, "debug\n");
 		char *list;
 		int try = 0;
 		list = vod_list_all_videos(vod, err);
@@ -408,11 +416,14 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url
 			*err = XL_ERROR_HTTP_ERROR;
 			return status;
 		}
+		xl_log(LOG_DEBUG, "debug, url=%s, uhash=%s\n", url, uhash);
 		s_free(list);
 	} else {
+		xl_log(LOG_DEBUG, "debug\n");
 		uhash = s_strdup(url_hash);
 	}
 	snprintf(post_data, sizeof(post_data), "{\"req\":{\"url_hash_list\":[\"%s\"],\"platform\":0}}", uhash);
+	printf("post_data is %s\n", post_data);
 	snprintf(post_url, sizeof(post_url), "http://i.vod.xunlei.com/req_progress_query?&t=%ld", get_current_timestamp());
 
 	http = xl_client_open_url(vod->client, post_url, HTTP_POST, post_data, NULL, err);

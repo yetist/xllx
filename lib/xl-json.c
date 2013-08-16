@@ -319,6 +319,7 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 	if (!orig_url || !new_url)
 		return ret;
 
+	xl_log(LOG_DEBUG, "\norig_url=%s\n new_url=%s\n", orig_url, new_url);
 	if ((strncmp(orig_url, "ed2k://", 7) == 0) &&(strncmp(new_url, "ed2k://", 7) == 0))
 	{
 		char *end;
