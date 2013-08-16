@@ -26,34 +26,13 @@
 #include "xllx.h"
 
 char video_urls[][600] = {
-	//"thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NUMwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa",
+	"thunder://QUFodHRwOi8vdGh1bmRlci5mZmR5LmNjLzk2NUMwQTk5NERDQUE1MzQ4REQwMTA4N0NDRDY1MzY0OEVFQjREM0Yv5Lit5Zu95ZCI5LyZ5Lq6QkQucm12Ylpa",
 	"magnet:?xt=urn:btih:32dbf49152cf116cbc0f0cfcf502ce288d3e56ad&tr.0=http://tracker.openbittorrent.com/announce&tr.1=udp://tracker.openbittorrent.com:80/announce&tr.2=http://tracker.thepiratebay.org/announce&tr.3=http://tracker.publicbt.com/announce&tr.4=http://tracker.prq.to/announce&tr.5=udp://tracker.publicbt.com:80/announce",
 	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333350&aid=225934",
 	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333635&aid=226138",
 	"http://bbs.btwuji.com/job.php?action=download&pid=tpc&tid=333636&aid=226139",
 	{0},
 };
-
-void test_http(const char *uri)
-{
-	XLHttp *req = xl_http_new(uri);
-	if (req) {
-		int ret = 0;
-		ret = xl_http_open(req, 0, NULL);
-		if (ret == 0) {
-			printf("Http response code: %d\n", xl_http_get_status(req));
-			printf("Http response buf: %s\n", xl_http_get_body(req));
-			printf("Http [cookie]BDSVRTM: %s\n", xl_http_get_cookie(req, "BDSVRTM"));
-			printf("Http [cookie]H_PS_PSSID: %s\n", xl_http_get_cookie(req, "H_PS_PSSID"));
-			printf("Http [header]BDQID: %s\n", xl_http_get_header(req, "BDQID"));
-			if (xl_http_get_status(req) == 302)
-			{
-				printf("Http [header]Location: %s\n", xl_http_get_header(req, "Location"));
-			}
-		}
-		xl_http_free(req);
-	}
-}
 
 void test_client(const char* username, const char* password)
 {
@@ -95,7 +74,7 @@ void test_client(const char* username, const char* password)
 	char *vurl;
 	while (video_urls[i] && *(video_urls[i]))
 	{
-		printf("video_urls[%d]=%s\n", i, video_urls[i]);
+		printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  video_urls[%d]=%s\n", i, video_urls[i]);
 		vurl = xl_vod_get_video_url(vod, video_urls[i], VIDEO_1080P, &err);
 		if (vurl == NULL)
 		{
@@ -107,6 +86,8 @@ void test_client(const char* username, const char* password)
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video url is not allowed\n");
 			} else if (err == XL_ERROR_VIDEO_ADD_FAILED) {
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
+			} else {
+				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  got an error, error code is %d\n", err);
 			}
 
 		} else {
@@ -124,7 +105,6 @@ int main(int argc, char** argv)
 
 	char *username = argv[1];
 	char *password = argv[2];
-	//test_http("http://www.baidu.com");
 	test_client(username, password);
 	return 0;
 }

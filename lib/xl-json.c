@@ -282,8 +282,9 @@ int json_parse_has_url(const char *json_str, const char *url, char **url_hash)
 					if (jo_src_url)
 					{
 						const char *src_url = json_object_get_string(jo_src_url);
-						char *uri = xl_url_unquote(src_url);
-						if (src_url_cmp(url, uri) == 0)
+						char *new_url = xl_url_unquote(src_url);
+						char *orig_url = xl_url_unquote(url);
+						if (src_url_cmp(orig_url, new_url) == 0)
 						{
 							if (url_hash)
 							{
@@ -295,8 +296,10 @@ int json_parse_has_url(const char *json_str, const char *url, char **url_hash)
 								}
 							}
 							ret = 0;
+							break;
 						}
-						s_free(uri);
+						s_free(orig_url);
+						s_free(new_url);
 						json_object_put(jo_src_url);
 					}
 					json_object_put(jo_history_play_list_n);
