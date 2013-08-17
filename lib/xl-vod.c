@@ -32,6 +32,7 @@
 #include "xl-json.h"
 #include "smemory.h"
 #include "logger.h"
+#include "list_head.h"
 #include "md5.h"
 
 #include <sys/types.h>
@@ -42,9 +43,24 @@
 #define DEFAULT_REFERER "http://i.vod.xunlei.com/proxy.html?v2.82"
 #define MAX_BUFF_LEN 6291456 
 
+typedef struct _XLVideo XLVideo;
+
+struct _XLVideo
+{
+	char *url_hash;
+	char *url;
+	char *file_name;
+	char *src_url;
+	size_t file_size;
+	int64_t duration;
+	XLVideo *next;
+	list_head_t list;
+};
+
 struct _XLVod
 {
 	XLClient *client;
+	XLVideo *video;
 };
 
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
@@ -62,15 +78,27 @@ XLVod* xl_vod_new(XLClient *client)
 	}
 	XLVod *vod = s_malloc0(sizeof(*vod));
 	vod->client = client;
+	vod->video = s_malloc0(sizeof(XLVideo));
+	INIT_LIST_HEAD(&(vod->video)->list);
+	if (list_empty(&(vod->video)->list))
+		printf("list is empty\n");
 	return vod;
 }
 
 void xl_vod_free(XLVod *vod)
 {
+	list_head_t *pos, *n;
+	XLVideo *tmp;
 	if (!vod)
 		return ;
 
 	xl_client_free(vod->client);
+	list_for_each_safe(pos, n, &(vod->video)->list)
+	{
+		tmp = list_entry(pos, XLVideo, list);
+		list_del_init(pos);
+		free(tmp); //FIXME: just free is not enough.
+	}
 	s_free(vod);
 }
 
