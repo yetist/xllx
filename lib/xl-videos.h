@@ -36,11 +36,11 @@ size_t   xl_video_get_file_size(XLVideo *video);
 int64_t  xl_video_get_duration(XLVideo *video);
 int      xl_video_free(XLVideo *video);
 
+XLVideos* xl_videos_new(void)
 XLVideos* xl_videos_append_video(XLVideos *videos, XLVideo *video);
 int       xl_videos_get_count(XLVideos *videos);
 XLVideos* xl_videos_get_nth(XLVideos *videos, int pos);
 XLVideo*  xl_videos_get_nth_video(XLVideos *videos, int pos);
-XLVideos* xl_videos_insert_video(XLVideos *videos, XLVideo *video, int pos);
 XLVideos* xl_videos_remove (XLVideos *videos, XLVideo *video);
 
 //int       xl_videos_delete_video(XLVideos *videos, int pos);

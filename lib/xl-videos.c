@@ -27,6 +27,7 @@
 
 #include "xl-videos.h"
 #include "smemory.h"
+#include "list_head.h"
 
 struct _XLVideo
 {
@@ -41,10 +42,8 @@ struct _XLVideo
 struct _XLVideos
 {
 	XLVideo *video;
-	XLVideos *next;
+	list_head_t list;
 };
-
-static void      xl_videos_free_1(XLVideos *videos);
 
 XLVideo* xl_video_new(const char *url_hash, const char *url, const char *file_name, const char *src_url, size_t file_size, int64_t duration)
 {
@@ -120,163 +119,86 @@ int xl_video_free(XLVideo *video)
 	return 0;
 }
 
-XLVideos* videos_get_last(XLVideos *videos)
+/******** Videos below ********/
+
+XLVideos* xl_videos_new(void)
 {
-  if (videos)
-    {
-      while (videos->next)
-        videos = videos->next;
-    }
-
-  return videos;
-}
-
-XLVideos* xl_videos_prepend (XLVideos *videos, XLVideo *video)
-{
-	XLVideos *new_videos = NULL;
-
-	new_videos = s_malloc0(sizeof(XLVideos));
-	if (new_videos != NULL)
-	{
-		new_videos->video = video;
-		new_videos->next = videos;
-	}
-
-	return new_videos;
+	XLVideos *videos;
+	videos = s_malloc0(sizeof(XLVideos));
+	INIT_LIST_HEAD(&(videos)->list);
+	if (list_empty(&(videos)->list))
+		printf("list is empty\n");
+	return videos;
 }
 
 XLVideos* xl_videos_append_video(XLVideos *videos, XLVideo *video)
 {
-	printf("%s:%s():%d\n", __FILE__, __FUNCTION__, __LINE__);
-	if (!video)
-		return videos;
-	XLVideos *new_videos = NULL;
-	XLVideos *last;
-
-	new_videos = s_malloc0(sizeof(XLVideos));
-	if (new_videos != NULL)
-	{
-		new_videos->video = video;
-		new_videos->next = NULL;
-	}
-
-	if (videos)
-	{
-		last = videos_get_last(videos);
-		last->next = new_videos;
-
-		return videos;
-	} else {
-		return new_videos;
-	}
-
+	XLVideos *tmp;
+	tmp = s_malloc0(sizeof(XLVideos));
+	tmp->video = video;
+	list_add_tail(&(tmp->list), &(videos)->list); 
+	return videos;
 }
 
 int  xl_videos_get_count(XLVideos *videos)
 {
+	list_head_t *pos;
 	int i;
-
 	i = 0;
-	while (videos)
+
+	list_for_each(pos, &(videos)->list) 
 	{
 		i++;
-		videos = videos->next;
 	}
 	return i;
 }
 
 XLVideos*  xl_videos_get_nth(XLVideos *videos, int pos)
 {
-  while (pos-- > 0 && videos)
-    videos = videos->next;
+	XLVideos *entry;
+	int i;
+	i = 0;
 
-  return videos;
+	list_for_each_entry(entry, &(videos)->list, list)
+	{
+		if (i == pos)
+			return entry;
+		i++;
+	}
+	return NULL;
 }
 
 XLVideo*  xl_videos_get_nth_video(XLVideos *videos, int pos)
 {
-  while (pos-- > 0 && videos)
-    videos = videos->next;
+	XLVideos *entry;
+	int i;
+	i = 0;
 
-  return videos ? videos->video: NULL;
-}
-
-XLVideos*       xl_videos_insert_video(XLVideos *videos, XLVideo *video, int pos)
-{
-	XLVideos *prev_videos;
-	XLVideos *tmp_videos;
-	XLVideos *new_videos = NULL;
-
-	if (pos < 0)
-		return xl_videos_append_video(videos, video);
-	else if (pos == 0)
-		return xl_videos_prepend (videos, video);
-
-	new_videos = s_malloc0(sizeof(XLVideos));
-	if (new_videos != NULL)
+	list_for_each_entry(entry, &(videos)->list, list)
 	{
-		new_videos->video = video;
+		if (i == pos)
+			return entry->video;
+		i++;
 	}
-
-	if (!videos)
-	{
-		new_videos->next = NULL;
-		return new_videos;
-	}
-
-	prev_videos = NULL;
-	tmp_videos = videos;
-
-	while ((pos-- > 0) && tmp_videos)
-	{
-		prev_videos = tmp_videos;
-		tmp_videos = tmp_videos->next;
-	}
-
-	if (prev_videos)
-	{
-		new_videos->next = prev_videos->next;
-		prev_videos->next = new_videos;
-	}
-	else
-	{
-		new_videos->next = videos;
-		videos = new_videos;
-	}
-
-	return videos;
+	return NULL;
 }
 
 XLVideos* xl_videos_remove (XLVideos *videos, XLVideo *video)
 {
-	XLVideos *tmp, *prev = NULL;
+	list_head_t *pos, *n;
+	XLVideos *tmp;
 
-	tmp = videos;
-	while (tmp)
-	{
+	list_for_each_safe(pos, n, &(videos)->list) 
+	{ 
+		tmp = list_entry(pos, XLVideos, list); 
 		if (tmp->video == video)
 		{
-			if (prev)
-				prev->next = tmp->next;
-			else
-				videos = tmp->next;
-
-			xl_videos_free_1(tmp);
-			s_free(tmp);
-			break;
+			list_del_init(pos);
+			xl_video_free(tmp->video);
+			free(tmp);
 		}
-		prev = tmp;
-		tmp = prev->next;
-	}
-
+	} 
 	return videos;
-}
-
-static void      xl_videos_free_1(XLVideos *videos)
-{
-	xl_video_free(videos->video);
-	s_free(videos);
-	videos = NULL;
 }
 
 XLVideo*  xl_videos_find_video_by_url(XLVideos *videos, const char *url)
@@ -288,8 +210,7 @@ XLVideo*  xl_videos_find_video_by_url_hash(XLVideos *videos, const char *url_has
 {
 	XLVideos *tmp, *prev = NULL;
 
-	tmp = videos;
-	while (tmp!=NULL)
+	list_for_each_entry(tmp, &(videos)->list, list)
 	{
 		char *_url_hash;
 		_url_hash = xl_video_get_url_hash(tmp->video);
@@ -300,25 +221,24 @@ XLVideo*  xl_videos_find_video_by_url_hash(XLVideos *videos, const char *url_has
 		}else {
 			s_free(_url_hash);
 		}
-		tmp = tmp->next;
 	}
 	return NULL;
 }
 
 void xl_videos_free(XLVideos *videos)
 {
-	XLVideos *current;
-	XLVideos *next;
-
-	current = videos;
-	while(current != NULL)
+	list_head_t *pos, *n;
+	XLVideos *entry;
+	list_for_each_safe(pos, n, &(videos)->list)
 	{
-		next = current->next;//借助于q存储p的链域，否则释放p后无法引用
-		xl_videos_free_1(current);
-		current = next;
+		entry = list_entry(pos, XLVideos, list);
+		list_del_init(pos);
+		xl_video_free(entry->video);
+		free(entry);
 	}
 }
 
+#if 0
 int main(int argc, char **argv)
 {
 	XLVideo *v1, *v2;
@@ -326,11 +246,19 @@ int main(int argc, char **argv)
 	XLVideos *vs = NULL;
 	v1 = xl_video_new("url_hash", "url", "fname", "surl", 123, 3312);
 	v2 = xl_video_new("url_hash2", "url2", "fname2", "surl2", 22, 2222);
+	vs = xl_videos_new();
+	printf("videos count=%d, vs=%x\n", xl_videos_get_count(vs), &vs);
 	vs = xl_videos_append_video(vs, v1);
+	printf("videos count=%d, vs=%x\n", xl_videos_get_count(vs), &vs);
 	vs = xl_videos_append_video(vs, v2);
 	printf("videos count=%d, vs=%x\n", xl_videos_get_count(vs), &vs);
 	v = xl_videos_find_video_by_url_hash(vs, "url_hash2");
 	printf("videos url=%s\n", xl_video_get_url(v));
+	v = xl_videos_get_nth_video(vs, 1);
+	printf("videos url=%s\n", xl_video_get_url(v));
+	xl_videos_free(vs);
+	printf("videos count=%d, vs=%x\n", xl_videos_get_count(vs), &vs);
 
 	return 0;
 }
+#endif
