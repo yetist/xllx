@@ -24,6 +24,7 @@
 #define __XL_VOD_H__  1
 
 #include "xl-client.h"
+#include "xl-videos.h"
 
 typedef enum
 {
@@ -53,6 +54,11 @@ typedef struct _XLVod XLVod;
 XLVod* xl_vod_new(XLClient *client);
 void   xl_vod_free(XLVod *vod);
 
+XLVideos* xl_vod_get_videos(XLVod *vod);
+int       xl_vod_remove_video(XLVod *vod, const char *url_hash);
+int       xl_vod_remove_all_video(XLVod *vod);
+//int       xl_vod_add_video(XLVod *vod, const char *url);
+char*     xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video);
 //char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type);
 char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err);
 //VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *err);

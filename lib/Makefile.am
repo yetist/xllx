@@ -20,6 +20,7 @@ libxllx_la_SOURCES = 	\
 	xl-utils.c 	\
 	xl-vod.c	\
 	xl-json.c	\
+	xl-videos.c	\
 	smemory.c 	\
 	md5.c 	\
 	base64.c	\

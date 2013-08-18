@@ -32,7 +32,6 @@
 struct _XLVideo
 {
 	char *url_hash;
-	char *url;
 	char *file_name;
 	char *src_url;
 	size_t file_size;
@@ -45,9 +44,9 @@ struct _XLVideos
 	list_head_t list;
 };
 
-XLVideo* xl_video_new(const char *url_hash, const char *url, const char *file_name, const char *src_url, size_t file_size, int64_t duration)
+XLVideo* xl_video_new(const char *url_hash, const char *file_name, const char *src_url)
 {
-	if (!url_hash || !url || !src_url )
+	if (!url_hash || !file_name|| !src_url )
 	{
 		return NULL;
 	}
@@ -55,11 +54,8 @@ XLVideo* xl_video_new(const char *url_hash, const char *url, const char *file_na
 	if (video == NULL)
 		return NULL;
 	video->url_hash = s_strdup(url_hash);
-	video->url = s_strdup(url);
 	video->file_name = s_strdup(file_name);
 	video->src_url = s_strdup(src_url);
-	video->file_size = file_size;
-	video->duration = duration;
 	return video;
 }
 
@@ -68,13 +64,6 @@ char*    xl_video_get_url_hash(XLVideo *video)
 	if (!video)
 		return NULL;
 	return s_strdup(video->url_hash);
-}
-
-char*    xl_video_get_url(XLVideo *video)
-{
-	if (!video)
-		return NULL;
-	return s_strdup(video->url);
 }
 
 char*    xl_video_get_file_name(XLVideo *video)
@@ -112,9 +101,10 @@ int xl_video_free(XLVideo *video)
 
 	if (video->url_hash)
 		s_free(video->url_hash);
-	s_free(video->url);
-	s_free(video->file_name);
-	s_free(video->src_url);
+	if (video->file_name)
+		s_free(video->file_name);
+	if (video->src_url)
+		s_free(video->src_url);
 	s_free(video);
 	return 0;
 }
@@ -208,7 +198,7 @@ XLVideo*  xl_videos_find_video_by_url(XLVideos *videos, const char *url)
 
 XLVideo*  xl_videos_find_video_by_url_hash(XLVideos *videos, const char *url_hash)
 {
-	XLVideos *tmp, *prev = NULL;
+	XLVideos *tmp = NULL;
 
 	list_for_each_entry(tmp, &(videos)->list, list)
 	{

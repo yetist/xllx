@@ -27,24 +27,21 @@ typedef struct _XLVideo XLVideo;
 
 typedef struct _XLVideos XLVideos;
 
-XLVideo* xl_video_new(const char *url_hash, const char *url, const char *file_name, const char *src_url, size_t file_size, int64_t duration);
+XLVideo* xl_video_new(const char *url_hash, const char *file_name, const char *src_url);
 char*    xl_video_get_url_hash(XLVideo *video);
-char*    xl_video_get_url(XLVideo *video);
 char*    xl_video_get_file_name(XLVideo *video);
 char*    xl_video_get_src_url(XLVideo *video);
 size_t   xl_video_get_file_size(XLVideo *video);
 int64_t  xl_video_get_duration(XLVideo *video);
 int      xl_video_free(XLVideo *video);
 
-XLVideos* xl_videos_new(void)
+XLVideos* xl_videos_new(void);
 XLVideos* xl_videos_append_video(XLVideos *videos, XLVideo *video);
 int       xl_videos_get_count(XLVideos *videos);
 XLVideos* xl_videos_get_nth(XLVideos *videos, int pos);
 XLVideo*  xl_videos_get_nth_video(XLVideos *videos, int pos);
 XLVideos* xl_videos_remove (XLVideos *videos, XLVideo *video);
 
-//int       xl_videos_delete_video(XLVideos *videos, int pos);
-//int       xl_videos_clear(XLVideos *videos);
 XLVideo*  xl_videos_find_video_by_url(XLVideos *videos, const char *url);
 XLVideo*  xl_videos_find_video_by_url_hash(XLVideos *videos, const char *url_hash);
 void      xl_videos_free(XLVideos *videos);

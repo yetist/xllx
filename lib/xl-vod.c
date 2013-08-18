@@ -21,8 +21,13 @@
  * */
 
 
-#include <json.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <json.h>
 
 #include "xl-vod.h"
 #include "xl-cookies.h"
@@ -30,39 +35,22 @@
 #include "xl-url.h"
 #include "xl-utils.h"
 #include "xl-json.h"
+#include "xl-videos.h"
 #include "smemory.h"
 #include "logger.h"
-#include "list_head.h"
 #include "md5.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
 
 #define DEFAULT_REFERER "http://i.vod.xunlei.com/proxy.html?v2.82"
 #define MAX_BUFF_LEN 6291456 
 
-typedef struct _XLVideo XLVideo;
-
-struct _XLVideo
-{
-	char *url_hash;
-	char *url;
-	char *file_name;
-	char *src_url;
-	size_t file_size;
-	int64_t duration;
-	XLVideo *next;
-	list_head_t list;
-};
-
 struct _XLVod
 {
 	XLClient *client;
-	XLVideo *video;
+	XLVideos *videos;
 };
 
+static void vod_update_list(XLVod *vod);
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
 static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url);
 static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
@@ -78,27 +66,18 @@ XLVod* xl_vod_new(XLClient *client)
 	}
 	XLVod *vod = s_malloc0(sizeof(*vod));
 	vod->client = client;
-	vod->video = s_malloc0(sizeof(XLVideo));
-	INIT_LIST_HEAD(&(vod->video)->list);
-	if (list_empty(&(vod->video)->list))
-		printf("list is empty\n");
+	vod->videos = xl_videos_new();
+	vod_update_list(vod);
 	return vod;
 }
 
 void xl_vod_free(XLVod *vod)
 {
-	list_head_t *pos, *n;
-	XLVideo *tmp;
 	if (!vod)
 		return ;
 
 	xl_client_free(vod->client);
-	list_for_each_safe(pos, n, &(vod->video)->list)
-	{
-		tmp = list_entry(pos, XLVideo, list);
-		list_del_init(pos);
-		free(tmp); //FIXME: just free is not enough.
-	}
+	xl_videos_free(vod->videos);
 	s_free(vod);
 }
 
@@ -126,6 +105,109 @@ failed:
 	xl_http_free(req);
 	return NULL;
 }
+
+static void vod_update_list(XLVod *vod)
+{
+	int try = 0;
+	XLErrorCode err;
+	char* list = vod_list_all_videos(vod, &err);
+	while (list == NULL && try < 3){
+		list = vod_list_all_videos(vod, &err);
+		try++;
+	}
+	if (list == NULL)
+	{
+		xl_log(LOG_DEBUG, "http error, get video list error\n");
+		return;
+	}
+
+	if (json_parse_list_videos(list, vod->videos) == -1)
+	{
+		xl_log(LOG_DEBUG, "no list video found\n");
+		s_free(list);
+		return;
+	}
+	s_free(list);
+	return;
+}
+
+XLVideos* xl_vod_get_videos(XLVod *vod)
+{
+	if (xl_videos_get_count(vod->videos) == 0)
+		vod_update_list(vod);
+	return vod->videos;
+}
+
+int xl_vod_remove_video(XLVod *vod, const char *url_hash)
+{
+	char *response;
+	char *sessionid;
+	char p_url[512];
+	XLHttp *req;
+	XLVideo* video;
+	XLCookies *cookies;
+	XLErrorCode err;
+
+	if (url_hash == NULL)
+		return -1;
+
+	video = xl_videos_find_video_by_url_hash(vod->videos, url_hash);
+	if (video == NULL)
+		return 0;
+	
+	cookies = xl_client_get_cookies(vod->client);
+	sessionid = xl_cookies_get_sessionid(cookies);
+	if (sessionid == NULL)
+		return -1;
+	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_del_list?flag=0&sessionid=%s&t=%ld&url_hash=%s", sessionid, get_current_timestamp(), url_hash);
+	req = xl_client_open_url(vod->client, p_url, HTTP_GET, NULL, DEFAULT_REFERER, &err);
+	if (req == NULL){
+		goto failed;
+	}
+	if (xl_http_get_status(req) != 200)
+	{
+		err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+	response = xl_http_get_body(req);
+	if (json_parse_get_return_code(response) == 0)
+	{
+		s_free(sessionid);
+		xl_http_free(req);
+		xl_videos_remove (vod->videos, video);
+		return 0;
+	}
+failed:
+	xl_http_free(req);
+	s_free(sessionid);
+	return -1;
+}
+
+// 0 for success.
+int xl_vod_remove_all_video(XLVod *vod)
+{
+	int count;
+	int i;
+	int ret = 0;
+	count = xl_videos_get_count(vod->videos);
+	if (count == 0)
+		return 0;
+	for (i = 0; i < count; i++)
+	{
+		XLVideo *video;
+		char *url_hash;
+		int ret_code;
+		video = xl_videos_get_nth_video(vod->videos, i);
+		url_hash = xl_video_get_url_hash(video);
+		ret_code = xl_vod_remove_video(vod, url_hash);
+		if (ret_code != 0) ret++;
+		s_free(url_hash);
+	}
+	return ret;
+}
+
+//int xl_vod_add_video(XLVod *vod, const char *url);
+char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video);
 
 static int xl_vod_has_video(XLVod *vod, const char* url, char** url_hash, XLErrorCode *err)
 {
