@@ -5,7 +5,7 @@ AC_PREREQ([2.57])
 
 m4_define([xllx_major_version], [13])
 m4_define([xllx_minor_version], [8])
-m4_define([xllx_micro_version], [2])
+m4_define([xllx_micro_version], [19])
 m4_define([xllx_interface_age], [1])
 m4_define([xllx_binary_age], [m4_eval(100 * xllx_minor_version + xllx_micro_version)])
 m4_define([xllx_version], xllx_major_version.xllx_minor_version.xllx_micro_version)

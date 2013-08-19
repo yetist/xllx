@@ -10,21 +10,46 @@ endif
 SUBDIRS = libghttp
 DIST_SUBDIRS = libghttp
 
+XLLX_C_FILES = 		\
+	xl-client.c 	\
+	xl-cookies.c 	\
+	xl-http.c 	\
+	xl-json.c	\
+	xl-url.c 	\
+	xl-utils.c 	\
+	xl-videos.c	\
+	xl-vod.c	\
+	base64.c	\
+	logger.c 	\
+	md5.c 		\
+	smemory.c 
+
+INST_H_FILES = 		\
+	xllx.h		\
+	xl-client.h	\
+	xl-cookies.h	\
+	xl-errors.h	\
+	xl-videos.h	\
+       	xl-url.h	\
+       	xl-vod.h
+
+NOINST_H_FILES =	\
+	xl-http.h	\
+	xl-json.h	\
+	xl-utils.h	\
+	base64.h	\
+	list_head.h	\
+	logger.h	\
+	md5.h		\
+	smemory.h
+
+
 lib_LTLIBRARIES = libxllx.la
 
 libxllx_la_SOURCES = 	\
-	xl-http.c 	\
-	xl-client.c 	\
-	xl-cookies.c 	\
-	xl-url.c 	\
-	xl-utils.c 	\
-	xl-vod.c	\
-	xl-json.c	\
-	xl-videos.c	\
-	smemory.c 	\
-	md5.c 	\
-	base64.c	\
-	logger.c 
+	$(XLLX_C_FILES)	\
+	$(INST_H_FILES)	\
+	$(NOINST_H_FILES)
 
 libxllx_la_CFLAGS =	\
 	$(DEBUG_FLAGS) \
@@ -41,7 +66,10 @@ libxllx_la_LIBADD =	\
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 
-header_DATA = xllx.h xl-http.h xl-client.h xl-cookies.h xl-vod.h xl-errors.h xl-videos.h xl-url.h
+header_DATA = $(INST_H_FILES)
 headerdir = $(includedir)/xllx
+
+EXTRA_DIST =	\
+		$(noinst_HEADERS)
 
 -include $(top_srcdir)/git.mk
