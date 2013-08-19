@@ -65,7 +65,6 @@ void play_url_files(XLVod *vod, const char *path)
 		char *url;
 		len = strlen(buf);
 		buf[len-1] = '\0';
-		printf("line is:%s, len=%d, end=[%d]\n", buf, len, buf[len]);
 		url = xl_vod_get_video_url(vod, buf, VIDEO_1080P, &err);
 		if (url == NULL)
 		{
