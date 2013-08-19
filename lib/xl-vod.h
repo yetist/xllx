@@ -57,12 +57,12 @@ void   xl_vod_free(XLVod *vod);
 XLVideos* xl_vod_get_videos(XLVod *vod);
 int       xl_vod_remove_video(XLVod *vod, const char *url_hash);
 int       xl_vod_remove_all_video(XLVod *vod);
-//int       xl_vod_add_video(XLVod *vod, const char *url);
-char*     xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video);
-//char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type);
-char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err);
-//VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, XLErrorCode *err);
-VideoStatus xl_vod_get_video_status(XLVod *vod, const char* url, const char* url_hash, XLErrorCode *err);
+int       xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err);
+char*     xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLErrorCode *err);
+VideoStatus xl_vod_get_video_status(XLVod *vod, XLVideo *video, XLErrorCode *err);
+const char *xl_vod_str_video_status(VideoStatus status);
 
+//just a wrap, give url, get play url. but note here, we will delete other videos all on the xunlei vod.
+char*     xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err);
 
 #endif /* __XL_VOD_H__ */

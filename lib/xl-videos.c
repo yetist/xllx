@@ -116,8 +116,6 @@ XLVideos* xl_videos_new(void)
 	XLVideos *videos;
 	videos = s_malloc0(sizeof(XLVideos));
 	INIT_LIST_HEAD(&(videos)->list);
-	if (list_empty(&(videos)->list))
-		printf("list is empty\n");
 	return videos;
 }
 

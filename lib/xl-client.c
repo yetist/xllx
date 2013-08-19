@@ -169,12 +169,14 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 		}
 	}
 
-	if (xl_client_check_verify_code(client, err) != 0)
+	if (xl_client_check_verify_code(client, err) != 0 && *client->vcode != '!')
 	{
 		s_free(client->vcode);
 		client->vcode = NULL;
+		get_verify_image(client);
 		return -1;
 	}
+
 	return do_login(client, err);
 }
 
@@ -332,11 +334,12 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		goto failed;
 	}
 	if (xl_http_get_status(req) == 408) {
+		xl_log(LOG_NOTICE, "HTTP STATUS[408]\n");
 		*err = XL_ERROR_HTTP_TIMEOUT;
 		goto failed;
 	}
-	if (xl_http_get_body_len(req) <= 9000)
-		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
+//	if (xl_http_get_body_len(req) <= 9000)
+//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
 	//client_show_cookie_names(req);
 	return req;
 failed:

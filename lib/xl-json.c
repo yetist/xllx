@@ -30,7 +30,7 @@
 #include "logger.h"
 #include "xl-url.h"
 
-static int src_url_cmp(const char *orig_url, const char *new_url);
+//static int src_url_cmp(const char *orig_url, const char *new_url);
 
 char *json_parse_bt_hash(const char* json_str)
 {
@@ -171,6 +171,7 @@ int json_parse_get_return_code(const char* json_str)
 	return ret;
 }
 
+#if 0
 /**
  * json_parse_has_url:
  * @json_str: 
@@ -312,6 +313,7 @@ int json_parse_has_url(const char *json_str, const char *url, char **url_hash)
 	json_object_put(jsobj);
 	return ret;
 }
+#endif
 
 int json_parse_list_videos(const char *json_str, XLVideos *videos)
 {
@@ -460,6 +462,7 @@ int json_parse_list_videos(const char *json_str, XLVideos *videos)
 	return ret;
 }
 
+#if 0
 static int src_url_cmp(const char *orig_url, const char *new_url)
 {
 	int ret = -1;
@@ -515,7 +518,6 @@ static int src_url_cmp(const char *orig_url, const char *new_url)
 	return ret;
 }
 
-#if 0
 char *json_parse_get_url_hash(const char* json_str, const char *url)
 {
 	/*
@@ -767,6 +769,15 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 			}
 			json_object_put(jo_vodinfo_list);
 		}
+		struct json_object *jo_src_info;
+		struct json_object *jo_file_name;
+
+		jo_src_info = json_object_object_get(jo_resp, "src_info"); 
+		jo_file_name = json_object_object_get(jo_src_info, "file_name"); 
+		xl_log(LOG_NOTICE, "file name:%s\n", json_object_get_string(jo_file_name));
+		json_object_put(jo_file_name);
+		json_object_put(jo_src_info);
+
 		jo_duration = json_object_object_get(jo_resp, "duration"); 
 		if (jo_duration) {
 			duration = json_object_get_int64(jo_duration)/1000/1000;
