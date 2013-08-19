@@ -23,13 +23,13 @@
 #ifndef XL_HTTP_H
 #define XL_HTTP_H
 
-#include <ghttp.h>
+//#include <ghttp.h>
 #include "xl-errors.h"
 
 typedef enum
 {
-	HTTP_GET = ghttp_type_get,
-	HTTP_POST = ghttp_type_post,
+	HTTP_GET = 0,
+	HTTP_POST = 3,
 } HttpMethod;
 
 typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);

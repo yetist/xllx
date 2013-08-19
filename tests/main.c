@@ -24,7 +24,6 @@
 #include <string.h>
 
 #include "xllx.h"
-#include "xl-url.h"
 
 void play_online_videos(XLVod *vod)
 {

@@ -41,13 +41,7 @@ libxllx_la_LIBADD =	\
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 
-#noinst_HEADERS =
-noinst_PROGRAMS = testxl
-testxl_SOURCES = main.c
-testxl_CFLAGS = -I$(top_srcdir)/lib $(GHTTP_CFLAGS)  $(JSON_CFLAGS)
-testxl_LDADD = $(lib_LTLIBRARIES) $(GHTTP_LIBS) $(ZLIB_LIBS) $(GHTTP_LIBS) -lpthread $(JSON_LIBS)
-
-header_DATA = xllx.h xl-http.h xl-client.h xl-cookies.h xl-vod.h xl-errors.h
-headerdir = $(includedir)
+header_DATA = xllx.h xl-http.h xl-client.h xl-cookies.h xl-vod.h xl-errors.h xl-videos.h xl-url.h
+headerdir = $(includedir)/xllx
 
 -include $(top_srcdir)/git.mk

@@ -118,6 +118,7 @@ data/Makefile
 lib/xllx.h
 lib/Makefile
 lib/libghttp/Makefile
+tests/Makefile
 ])
 
 AC_OUTPUT

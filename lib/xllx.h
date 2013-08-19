@@ -5,6 +5,7 @@
 #include <xl-http.h>
 #include <xl-client.h>
 #include <xl-vod.h>
+#include <xl-url.h>
 
 #define XLLX_VERSION_MAJOR 13
 #define XLLX_VERSION_MINOR 8
