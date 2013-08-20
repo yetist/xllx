@@ -30,7 +30,7 @@ typedef enum
 	MGS_LOGIN,		/* 请求登录 */
 	MGS_VERIFY_IMAGE, /* 验证码图片信息 */
 	MGS_VERIFY_CODE, /* 验证码图片信息 */
-	MGS_BT_DATA, /* Bt文件信息 */
+	MGS_BT_FILE, /* Bt文件信息 */
 	MGS_VIDEO_URL,  /* 请求得到视频播放地址 */
 	MGS_LOGIN_INFO,	/* 返回登录信息 */
 	MGS_VIDEO_URL_INFO,	/* 返回视频播放地址信息 */
@@ -104,6 +104,18 @@ struct _VerifyImageMsg
 	Header head;
 	unsigned int size;
 };
+struct _BtFileRequ
+{
+	char       name[1024];	/* 请求种子的名称 */
+	unsigned int size;
+};
+typedef struct _BtFileRequ	BtFileRequ;
+
+struct _BtFileMsg
+{
+	Header head;
+	BtFileRequ body;
+};
 
 struct _VerifyCodeMsg
 {
@@ -119,6 +131,7 @@ typedef struct _VideoUrlRespMsg	VideoUrlRespMsg;
 
 typedef struct _VerifyImageMsg	VerifyImageMsg;
 typedef struct _VerifyCodeMsg	VerifyCodeMsg;
+typedef struct _BtFileMsg	BtFileMsg;
 
 /*
  * 消息包格式：

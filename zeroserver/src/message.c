@@ -31,6 +31,89 @@
 #include "protocol.h"
 #include "debug.h"
 
+static void send_file_by_path(int fd, const char* path, int size)
+{
+	log_err("fd=%d, path=%s, size=%d", fd, path, size);
+	int num, n;
+	char buf[8193];
+	int fp;
+	gchar *filepath;
+
+	if ((fp = open(path, O_RDONLY)) == -1)
+	{
+		printf("open path %s for write failed\n", path);
+		return;
+	}
+
+	n = size;
+	if (size < 8192)
+	{
+		while (n >0 && (num = read(fp, buf, n)) > 0)
+		{
+			send(fd, buf, num);
+			n -= num;
+		}
+		close(fp);
+		return;
+	}
+
+	n = 8192;
+	while(n > 0 && (num = fread(fp, buf, n)) > 0)
+	{
+		size -= num;
+		if (size < 8192)
+			n= size;
+		send (fd, buf, num);
+	}
+	close(fp);
+	return;
+}
+
+static void save_file_by_path(int fd, const char* path, int size)
+{
+	log_err("fd=%d, path=%s, size=%d", socket, path, size);
+	char *dirname;
+	int num, n;
+	char buf[8193];
+	int fp;
+
+	if ((fp = creat(path, S_IRUSR | S_IWUSR)) == -1)
+	{
+		g_printf("open path %s for write failed\n", path);
+		return;
+	}
+
+	n = size;
+	if (size < 8192)
+	{
+		while (n > 0 && (num = read(fd, buf, n)) > 0)
+		{
+			if (write(fp, buf, num) != num)
+			{
+				printf("write error\n");
+			}
+			n -= num;
+		}
+		fclose(fp);
+		return;
+	}
+
+	n = 8192;
+	while (n > 0 && (num = read (fd, buf, n)) > 0)
+	{
+		size -= num;
+		if (size < 8192)
+			n = size;
+		if (write(fp, buf, num) != num)
+		{
+			log_err("write error\n");
+		}
+	}
+	fclose(fp);
+	log_err("write OK\n");
+	return;
+}
+
 static ssize_t msg_read(int fd, void *buffer, ssize_t length)
 {
 	ssize_t bytes_left;
@@ -153,22 +236,8 @@ void msg_login(int fd, XLClient *client)
 		}
 
 		// 发送验证图片的内容
-		int vfd;
-		char buffer[1024*512];
-		vfd = open("/tmp/vcode.jpg", O_RDONLY);
-		int ret = read(out,buffer,vsize);
-		if (ret < 0)
-		{
-			perror("read verify image file error");
-		}
-		close(vfd);
 
-		size = msg_write(fd, buffer, vsize);
-		if (size < 0)
-		{
-			log_error("errno=%d\n", errno);
-			perror("write error");
-		}
+		send_file_by_path(fd, "/tmp/vcode.jpg", vsize);
 		VerifyCodeMsg codeMsg;
 		ssize_t size = msg_read(fd, &codeMsg, sizeof(codeMsg));
 		if (size < 0)
@@ -210,21 +279,13 @@ void msg_login(int fd, XLClient *client)
 	//write(cfd,buf,sizeof(buf));
 }
 
-void msg_video_url(int fd, XLClient *client)
-{	
-	VideoUrlRequ body;
-	ssize_t size = msg_read(fd, &body, sizeof(body));
-	if (size < 0)
-	{
-		log_error("errno=%d\n", errno);
-		perror("read error");
-	}
-
+void send_video_url(int fd, XLClient *client, char *url)
+{
 	XLVod *vod;
 	XLErrorCode err = 0;
 	vod = xl_vod_new(client);
 
-	char *vurl = xl_vod_get_video_url(vod, body.url, VIDEO_1080P, &err);
+	char *vurl = xl_vod_get_video_url(vod, url, VIDEO_1080P, &err);
 	if (vurl == NULL)
 	{
 		if (err == XL_ERROR_VIDEO_NOT_READY) {
@@ -263,6 +324,36 @@ void msg_video_url(int fd, XLClient *client)
 	}
 }
 
+void msg_video_url(int fd, XLClient *client)
+{	
+	VideoUrlRequ body;
+	ssize_t size = msg_read(fd, &body, sizeof(body));
+	if (size < 0)
+	{
+		log_error("errno=%d\n", errno);
+		perror("read error");
+	}
+
+	send_video_url(fd, client, body.url);
+}
+
+void msg_bt_file(int fd, XLClient *client)
+{
+	BtFileRequ body;
+	ssize_t size = msg_read(fd, &body, sizeof(body));
+	if (size < 0)
+	{
+		log_error("errno=%d\n", errno);
+		perror("read error");
+	}
+	log_info("bt name is %s, bt size is %d", body.name, body.size);
+
+	char path[2048];
+	snprintf(path, sizeof(path), "/tmp/%s", body.name);
+	save_file_by_path(fd, path, body.size);
+	send_video_url(fd, client, path);
+}
+
 void serve_message(int fd)
 {
 	XLClient client;
@@ -275,13 +366,17 @@ void serve_message(int fd)
 	debug("head.id=%d\n", head.id);
 
 	switch(head.id) {
-		case MGS_LOGIN:		/* 获取插件列表 */
+		case MGS_LOGIN:		/* 登录 */
 			log_info("get MGS_LOGIN\n");
 			msg_login(fd, &client);
 			break;
-		case MGS_VIDEO_URL:		/* 关键字查询 */
+		case MGS_VIDEO_URL:		/* 普通视频url */
 			log_info("get MGS_VIDEO_URL\n");
 			msg_video_url(fd, &client);
+			break;
+		case MGS_BT_FILE:		/* bt种子文件 */
+			log_info("get MGS_BT_FILE\n");
+			msg_bt_file(fd, &client);
 			break;
 		default:
 			log_error("error header\n");
