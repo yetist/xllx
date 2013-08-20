@@ -1,10 +1,10 @@
-bin_PROGRAMS = htpcos
+bin_PROGRAMS = xllx-server
 
 LIBS	= -lev -lpthread -lxllx
 
-htpcos_CFLAGS = -I/usr/include/xllx
+xllx_server_CFLAGS = -I/usr/include/xllx
 
-htpcos_SOURCES = 	\
+xllx_server_SOURCES = 	\
 	htpcos_server.c \
 	zero_server.c \
 	zero_thread.c \
