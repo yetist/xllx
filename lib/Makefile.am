@@ -30,8 +30,9 @@ INST_H_FILES = 		\
 	xl-cookies.h	\
 	xl-errors.h	\
 	xl-videos.h	\
-       	xl-url.h	\
-       	xl-vod.h
+	xl-http.h	\
+   	xl-url.h	\
+   	xl-vod.h
 
 NOINST_H_FILES =	\
 	xl-http.h	\
