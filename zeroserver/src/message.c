@@ -25,7 +25,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <xllx/xllx.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <xllx.h>
+#include <xl-client.h>
 
 #include "message.h"
 #include "protocol.h"
@@ -33,11 +38,11 @@
 
 static void send_file_by_path(int fd, const char* path, int size)
 {
-	log_err("fd=%d, path=%s, size=%d", fd, path, size);
+	printf("fd=%d, path=%s, size=%d", fd, path, size);
 	int num, n;
 	char buf[8193];
 	int fp;
-	gchar *filepath;
+	char *filepath;
 
 	if ((fp = open(path, O_RDONLY)) == -1)
 	{
@@ -50,7 +55,7 @@ static void send_file_by_path(int fd, const char* path, int size)
 	{
 		while (n >0 && (num = read(fp, buf, n)) > 0)
 		{
-			send(fd, buf, num);
+			write(fd, buf, num);
 			n -= num;
 		}
 		close(fp);
@@ -58,20 +63,19 @@ static void send_file_by_path(int fd, const char* path, int size)
 	}
 
 	n = 8192;
-	while(n > 0 && (num = fread(fp, buf, n)) > 0)
+	while(n > 0 && (num = read(fp, buf, n)) > 0)
 	{
 		size -= num;
 		if (size < 8192)
 			n= size;
-		send (fd, buf, num);
+		write (fd, buf, num);
 	}
 	close(fp);
 	return;
 }
 
-static void save_file_by_path(int fd, const char* path, int size)
+static void save_file_by_path(int fd, const char* path, unsigned int size)
 {
-	log_err("fd=%d, path=%s, size=%d", socket, path, size);
 	char *dirname;
 	int num, n;
 	char buf[8193];
@@ -79,7 +83,7 @@ static void save_file_by_path(int fd, const char* path, int size)
 
 	if ((fp = creat(path, S_IRUSR | S_IWUSR)) == -1)
 	{
-		g_printf("open path %s for write failed\n", path);
+		printf("open path %s for write failed\n", path);
 		return;
 	}
 
@@ -94,7 +98,7 @@ static void save_file_by_path(int fd, const char* path, int size)
 			}
 			n -= num;
 		}
-		fclose(fp);
+		close(fp);
 		return;
 	}
 
@@ -106,11 +110,11 @@ static void save_file_by_path(int fd, const char* path, int size)
 			n = size;
 		if (write(fp, buf, num) != num)
 		{
-			log_err("write error\n");
+			printf("write error\n");
 		}
 	}
-	fclose(fp);
-	log_err("write OK\n");
+	close(fp);
+	printf("write OK\n");
 	return;
 }
 
@@ -129,18 +133,18 @@ static ssize_t msg_read(int fd, void *buffer, ssize_t length)
 		{   
 			if(errno==EINTR) /* 中断错误 我们继续读 */
 			{
-				log_error("continue\n");
+				printf("continue\n");
 				continue;
 			}
 			else if(errno==EAGAIN) /* EAGAIN : Resource temporarily unavailable*/
 			{
 				sleep(1);//等待一秒，希望接收缓冲区能得到释放
-				log_error("continue\n");
+				printf("continue\n");
 				continue;
 			}
 			else /* 其他错误 没有办法,只好退了*/
 			{
-				log_error("ERROR: errno = %d, strerror = %s \n" , errno, strerror(errno));
+				printf("ERROR: errno = %d, strerror = %s \n" , errno, strerror(errno));
 				return(-1);
 			}
 		}
@@ -176,7 +180,7 @@ static ssize_t msg_write(int fd, void *buffer, ssize_t length)
 			}
 			else /* 其他错误 没有办法,只好退了*/
 			{
-				log_error("ERROR: errno = %d, strerror = %s \n"
+				printf("ERROR: errno = %d, strerror = %s \n"
 						, errno, strerror(errno));
 				return(-1);
 			}
@@ -308,7 +312,7 @@ void send_video_url(int fd, XLClient *client, char *url)
 		Header head;
 		head.id = MGS_VIDEO_URL_INFO;
 		//write the header
-		size = msg_write(fd, &head, sizeof(head));
+		size_t size = msg_write(fd, &head, sizeof(head));
 		if (size < 0)
 		{
 			log_error("errno=%d\n", errno);
@@ -356,7 +360,7 @@ void msg_bt_file(int fd, XLClient *client)
 
 void serve_message(int fd)
 {
-	XLClient client;
+	XLClient *client;
 	Header head;
 	int size = msg_read(fd, &head, sizeof(head));
     if (size < 0)
@@ -368,15 +372,15 @@ void serve_message(int fd)
 	switch(head.id) {
 		case MGS_LOGIN:		/* 登录 */
 			log_info("get MGS_LOGIN\n");
-			msg_login(fd, &client);
+			msg_login(fd, client);
 			break;
 		case MGS_VIDEO_URL:		/* 普通视频url */
 			log_info("get MGS_VIDEO_URL\n");
-			msg_video_url(fd, &client);
+			msg_video_url(fd, client);
 			break;
 		case MGS_BT_FILE:		/* bt种子文件 */
 			log_info("get MGS_BT_FILE\n");
-			msg_bt_file(fd, &client);
+			msg_bt_file(fd, client);
 			break;
 		default:
 			log_error("error header\n");

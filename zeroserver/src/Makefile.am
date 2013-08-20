@@ -1,8 +1,8 @@
 bin_PROGRAMS = htpcos
 
-LIBS	= -lev -lpthread  -lmimgr $(JSON_LIBS)
+LIBS	= -lev -lpthread -lxllx
 
-htpcos_CFLAGS = $(JSON_CFLAGS)
+htpcos_CFLAGS = -I/usr/include/xllx
 
 htpcos_SOURCES = 	\
 	htpcos_server.c \

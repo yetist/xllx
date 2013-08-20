@@ -82,7 +82,7 @@ typedef struct _LoginInfoResp LoginInfoResp;
 struct _LoginRespMsg
 {
 	Header head;
-	LoginInfoRespResp body;
+	LoginInfoResp body;
 };
 
 /* 返回视频地址消息定义 */
@@ -121,7 +121,7 @@ struct _VerifyCodeMsg
 {
 	Header head;
 	char code[4];
-}
+};
 
 typedef struct _LoginRequMsg	LoginRequMsg;
 typedef struct _VideoUrlRequMsg	VideoUrlRequMsg;
