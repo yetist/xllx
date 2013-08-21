@@ -46,11 +46,23 @@ typedef struct _AsyncWatchData AsyncWatchData;
 struct _XLHttp
 {
 	CURL *curl;
-	ghttp_request *req;
+	XLHttpShare *hs;
 	int http_code;
-	char *response;
-	int resp_len;
+	char *response;	//body
+    int resp_len;	//body_len
+
+	struct curl_slist* header;
+    struct curl_slist* recv_head;
+
+	struct curl_httppost *form_start;
+	struct curl_httppost *form_end;
 };
+
+struct _XLHttpShare
+{
+	CURLSH *share;
+	pthread_mutex_t share_lock[4];
+}
 
 /* Those Code for async API */
 struct _AsyncWatchData
@@ -99,12 +111,33 @@ XLHttp *xl_http_new(const char *uri)
 		goto failed;
 	}
 
-	return http;
+    curl_easy_setopt(request->http, CURLOPT_HEADERFUNCTION, write_header);
+    curl_easy_setopt(request->http, CURLOPT_HEADERDATA, request);
+    curl_easy_setopt(request->http, CURLOPT_WRITEFUNCTION, write_content);
+    curl_easy_setopt(request->http, CURLOPT_WRITEDATA, request);
+    curl_easy_setopt(request->http, CURLOPT_NOSIGNAL, 1);
+    curl_easy_setopt(request->http, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(request->http, CURLOPT_CONNECTTIMEOUT, 30);
+    //set normal operate timeout to 30.official value.
+    //curl_easy_setopt(request->req,CURLOPT_TIMEOUT,30);
+    //low speed: 5B/s
+    curl_easy_setopt(request->http, CURLOPT_LOW_SPEED_LIMIT, 8*5);
+    curl_easy_setopt(request->http, CURLOPT_LOW_SPEED_TIME, 30);
+    curl_easy_setopt(request->http, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_easy_setopt(request->http, CURLOPT_DEBUGFUNCTION, curl_debug_redirect);
+    request->do_request = lwqq_http_do_request;
+    request->set_header = lwqq_http_set_header;
+    request->get_header = lwqq_http_get_header;
+    request->add_form = lwqq_http_add_form;
+    request->add_file_content = lwqq_http_add_file_content;
+
+    return http;
 
 failed:
 	if (http) {
 		xl_http_free(http);
 	}
+	return NULL;
 }
 
 XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
@@ -126,8 +159,17 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 	}
 
 	xl_http_set_default_header(req);
+	if (http->hs)
+	{
+		curl_easy_setopt(http->curl, CURLOPT_SHARE, hs->share);
+	}
 	//xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
 	return req;
+}
+
+void    xl_http_set_http_share(XLHttp *http, XLHttpShare *hs)
+{
+	http->hs = hs;
 }
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body)
@@ -192,174 +234,67 @@ failed:
 	return -1;
 }
 
+// return 0 for success.
 static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len)
 {
-	if (!request->curl)
-		return -1;
-#if 0
-	CURLcode res;
+    if (!request->curl)
+        return -1;
 
-	curl = curl_easy_init();
-	if(curl) {
-		curl_easy_setopt(curl, CURLOPT_URL, "http://example.com");
-		/* example.com is redirected, so we tell libcurl to follow redirection */ 
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    CURLcode ret;
+    LwqqHttpRequest_* req_ = (LwqqHttpRequest_*) request;
+    req_->retry_ = request->retry;
+retry:
+    ret=0;
+    char **resp = &request->response;
 
-		/* Perform the request, res will get the return code */ 
-		res = curl_easy_perform(curl);
-		/* Check for errors */ 
-		if(res != CURLE_OK)
-			fprintf(stderr, "curl_easy_perform() failed: %s\n",
-					curl_easy_strerror(res));
+    /* Clear off last response */
+    http_clean(request);
 
-		/* always cleanup */ 
-		curl_easy_cleanup(curl);
-	}
-	return 0;
-	return NULL;
-#endif
-	ghttp_status status;
-	char *buf;
-	int have_read_bytes = 0;
-	char **resp = &request->response;
-
-	/* Clear off last response */
-	if (*resp) {
-		s_free(*resp);
-		*resp = NULL;
-	}
-
-	if (ghttp_set_type(request->req, method) == -1) {
-		xl_log(LOG_WARNING, "Set request type error\n");
+	/* Set http method */
+	if (method==HTTP_GET){
+	}else if (method == HTTP_POST && body) {
+		curl_easy_setopt(request->curl, CURLOPT_POST, 1);
+		curl_easy_setopt(request->curl, CURLOPT_COPYPOSTFIELDS, body);
+	} else {
+		xl_log(LOG_WARNING, "Wrong http method\n");
 		goto failed;
 	}
 
-	/* For POST method, set http body */
-	if (method == HTTP_POST && body) {
-		ghttp_set_body(request->req, body, body_len);
-	}
+    ret = curl_easy_perform(request->curl);
+    composite_trunks(request);
+    if(ret != CURLE_OK){
+        xl_log(LOG_ERROR,"do_request fail curlcode:%d\n",ret);
+        LwqqErrorCode ec;
+        if(set_error_code(request, ret, &ec)){
+            goto retry;
+        }
+        return ec;
+    }
+    //perduce timeout.
+    req_->retry_ = request->retry;
+    curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, &request->http_code);
 
-	if (ghttp_prepare(request->req)) {
-		goto failed;
-	}
+    // NB: *response may null 
+    // jump it .that is no problem.
+    if (*resp == NULL) {
+        goto failed;
+    }
 
-	for ( ; ; ) {
-		int len = 0;
-		status = ghttp_process(request->req);
-		if(status == ghttp_error) {
-			xl_log(LOG_ERROR, "Http request failed: %s\n", ghttp_get_error(request->req));
-			goto failed;
-		}
-		/* NOTE: buf may NULL, notice it */
-		buf = ghttp_get_body(request->req);
-		if (buf) {
-			len = ghttp_get_body_len(request->req);
-			*resp = s_realloc(*resp, have_read_bytes + len);
-			memcpy(*resp + have_read_bytes, buf, len);
-			have_read_bytes += len;
-		}
-		if(status == ghttp_done) {
-			/* NOTE: Ok, done */
-			break;
-		}
-	}
+    /* Uncompress data here if we have a Content-Encoding header */
+    const char *enc_type = NULL;
+    enc_type = xl_http_get_header(request, "Content-Encoding");
+    if (enc_type && strstr(enc_type, "gzip")) {
+        uncompress_response(request);
+    }
 
-	/* NB: *response may null */
-	if (*resp == NULL) {
-		goto failed;
-	}
-
-	/* Uncompress data here if we have a Content-Encoding header */
-	char *enc_type = NULL;
-	enc_type = xl_http_get_header(request, "Content-Encoding");
-	if (enc_type && strstr(enc_type, "gzip")) {
-		char *outdata;
-		int total = 0;
-
-		outdata = ungzip(*resp, have_read_bytes, &total);
-		if (!outdata) {
-			s_free(enc_type);
-			goto failed;
-		}
-
-
-		s_free(*resp);
-		/* Update response data to uncompress data */
-		*resp = s_strdup(outdata);
-		s_free(outdata);
-		have_read_bytes = total;
-	}
-	s_free(enc_type);
-
-	/* OK, done */
-	if ((*resp)[have_read_bytes -1] != '\0') {
-		/* Realloc a byte, cause *resp hasn't end with char '\0' */
-		*resp = s_realloc(*resp, have_read_bytes + 1);
-		(*resp)[have_read_bytes] = '\0';
-	}
-	request->resp_len = have_read_bytes;
-	request->http_code = ghttp_status_code(request->req);
-	return 0;
+    return 0;
 
 failed:
-	if (*resp) {
-		s_free(*resp);
-		*resp = NULL;
-	}
-	return -1;
-}
-
-int xl_http_open_async(XLHttp *request, HttpMethod method,
-		char *body, XLAsyncCallback callback,
-		void *data)
-{
-	int status;
-
-	if (ghttp_set_type(request->req, method) == -1) {
-		xl_log(LOG_WARNING, "Set request type error\n");
-		xl_http_free(request);
-		return -1;
-	}
-
-	/* For POST method, set http body */
-	if (method == HTTP_POST && body) {
-		ghttp_set_body(request->req, body, strlen(body));
-	}
-
-	ghttp_set_sync(request->req, ghttp_async);
-	if (ghttp_prepare(request->req)) {
-		xl_http_free(request);
-		return -1;
-	}
-
-	status = ghttp_process(request->req);
-	if (status != ghttp_not_done){
-		xl_log(LOG_ERROR, "BUG!!!async error\n");
-		xl_http_free(request);
-		return -1;
-	}
-
-	ev_io *watcher = (ev_io *)s_malloc(sizeof(ev_io));
-
-	ghttp_request* req = (ghttp_request*)request->req;
-
-	ev_io_init(watcher, ev_io_come, ghttp_get_socket(req), EV_READ);
-	AsyncWatchData *d = s_malloc(sizeof(AsyncWatchData));
-	d->request = request;
-	d->callback = callback;
-	d->data = data;
-	watcher->data = d;
-
-	ev_io_start(EV_DEFAULT, watcher);
-
-	if (xl_async_running == -1) {
-		xl_async_running = 1;
-		pthread_create(&xl_async_tid, NULL, xl_async_thread, NULL);
-	} else if(xl_async_running == 0) {
-		pthread_cond_signal(&xl_async_cond);
-	}
-
-	return 0;
+    if (*resp) {
+        s_free(*resp);
+        *resp = NULL;
+    }
+    return 0;
 }
 
 void xl_http_set_header(XLHttp *request, const char *name, const char *value)
@@ -367,19 +302,44 @@ void xl_http_set_header(XLHttp *request, const char *name, const char *value)
 	if (!request->req || !name || !value)
 		return ;
 
-	ghttp_set_header(request->req, name, value);
-	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+    //use libcurl internal cookie engine
+    if(strcmp(name,"Cookie")==0) return;
+
+    size_t name_len = strlen(name);
+    size_t value_len = strlen(value);
+    char* opt = s_malloc(name_len+value_len+3);
+
+    strcpy(opt,name);
+    opt[name_len] = ':';
+    //need a blank space
+    opt[name_len+1] = ' ';
+    strcpy(opt+name_len+2,value);
+
+    int use_old = 0;
+    struct curl_slist* list = request->header;
+    while(list){
+        if(strncmp(list->data,name,strlen(name)) == 0){
+            s_free(list->data);
+            list->data = s_strdup(opt);
+            use_old = 1;
+            break;
+        }
+        list = list->next;
+    }
+    if(!use_old){
+        request->header = curl_slist_append((struct curl_slist*)request->header,opt);
+    }
+
+    curl_easy_setopt(request->req, CURLOPT_HTTPHEADER, request->header);
+    s_free(opt);
 }
 
 static void xl_http_set_default_header(XLHttp *request)
 {
-
-
 	xl_http_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
 	xl_http_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
 	xl_http_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");
 	xl_http_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
-	//xl_http_set_header(request, "Accept-Encoding", "deflate, gzip, x-gzip, " "identity, *;q=0");
 	xl_http_set_header(request, "Accept-Encoding", "gzip, deflate");
 	xl_http_set_header(request, "Connection", "Keep-Alive");
 
@@ -392,16 +352,22 @@ char *xl_http_get_header(XLHttp *request, const char *name)
 		return NULL; 
 	}
 
-	const char *h = ghttp_get_header(request->req, name);
-	if (!h) {
-		return NULL;
+	char *h = NULL;
+	struct curl_slist* list = request->recv_head;
+	while(list!=NULL){
+		if(strncmp(name, list->data, strlen(name))==0){
+			h = s_strdup(list->data+strlen(name)+2);
+			break;
+		}
+		list = list->next;
 	}
 
-	return s_strdup(h);
+	return h;
 }
 
 /*
  * return count of cookies
+ * TODO
  */
 int xl_http_get_cookie_names(XLHttp *request, char ***names)
 {
@@ -417,6 +383,7 @@ int xl_http_get_cookie_names(XLHttp *request, char ***names)
     return nums;
 }
 
+//TODO
 int xl_http_has_cookie(XLHttp *request, const char* key)
 {
     int i, nums;
@@ -450,16 +417,30 @@ int xl_http_has_cookie(XLHttp *request, const char* key)
 
 char *xl_http_get_cookie(XLHttp *request, const char *name)
 {
-	if (!name) {
-		return NULL; 
+    if (!name) {
+        xl_log(LOG_ERROR, "Invalid parameter\n");
+        return NULL; 
+    }
+	if (request->hs)
+	{
+		struct curl_slist* list;
+		CURL* easy = curl_easy_init();
+		curl_easy_setopt(easy, CURLOPT_SHARE, request->hs->share);
+		curl_easy_getinfo(easy, CURLINFO_COOKIELIST, &list);
+		curl_easy_cleanup(easy);
+		char* n,*v;
+		while(list!=NULL){
+			v = strrchr(list->data,'\t')+1;
+			n = v-2;
+			while(n--,*n!='\t');
+			n++;
+			if(v-n-1 == strlen(name) && strncmp(name,n,v-n-1)==0){
+				return s_strdup(v);
+			}
+			list = list->next;
+		}
 	}
-
-	char *cookie = ghttp_get_cookie(request->req, name);
-	if (!cookie) {
-		return NULL;
-	}
-
-	return cookie;
+    return NULL;
 }
 
 int xl_http_get_status(XLHttp *request)
@@ -487,6 +468,21 @@ void xl_http_free(XLHttp *request)
 		ghttp_request_destroy(request->req);
 		s_free(request);
 	}
+}
+
+static void uncompress_response(XLHttp* http)
+{
+    char *outdata;
+    char **resp = &http->response;
+    int total = 0;
+
+    outdata = ungzip(*resp, req->resp_len, &total);
+    if (!outdata) return;
+
+    s_free(*resp);
+    /* Update response data to uncompress data */
+    *resp = outdata;
+    http->resp_len = total;
 }
 
 static char *unzlib(const char *source, int len, int *total, int isgzip)
@@ -574,87 +570,117 @@ static char *ungzip(const char *source, int len, int *total)
 	return unzlib(source, len, total, 1);
 }
 
-static void* xl_async_thread(void* data)
+static size_t write_header( void *ptr, size_t size, size_t nmemb, void *userdata)
 {
-	struct ev_loop* loop = EV_DEFAULT;
-	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-	while (1) {
-		xl_async_running = 1;
-		ev_run(loop, 0);
-		xl_async_running = 0;
-		pthread_mutex_lock(&mutex);
-		pthread_cond_wait(&xl_async_cond, &mutex);
-		pthread_mutex_unlock(&mutex);
-	}
-	return NULL;
+    char* str = (char*)ptr;
+    LwqqHttpRequest* request = (LwqqHttpRequest*) userdata;
+
+    long http_code;
+    curl_easy_getinfo(request->req,CURLINFO_RESPONSE_CODE,&http_code);
+    //this is a redirection. ignore it.
+    if(http_code == 301||http_code == 302){
+        if(strncmp(str,"Location",strlen("Location"))==0){
+            const char* location = str+strlen("Location: ");
+            request->location = s_strdup(location);
+            int len = strlen(request->location);
+            //remove the last \r\n
+            request->location[len-1] = 0;
+            request->location[len-2] = 0;
+            lwqq_verbose(3,"Location: %s\n",request->location);
+        }
+        return size*nmemb;
+    }
+    request->recv_head = curl_slist_append(request->recv_head,(char*)ptr);
+    //read cookie from header;
+    /*if(strncmp(str,"Set-Cookie",strlen("Set-Cookie"))==0){
+        struct cookie_list * node = s_malloc0(sizeof(*node));
+        sscanf(str,"Set-Cookie: %[^=]=%[^;];",node->name,node->value);
+        request->cookie = slist_append(request->cookie,node);
+        LwqqClient* lc = request->lc;
+        if(lc&&!(req_->flags&LWQQ_HTTP_NOT_SET_COOKIE)){
+            if(!lc->cookies) lc->cookies = s_malloc0(sizeof(LwqqCookies));
+            lwqq_set_cookie(lc->cookies, node->name, node->value);
+        }
+    }*/
+    return size*nmemb;
 }
 
-static void ev_io_come(EV_P_ ev_io* w, int revent)
+XLHttpShare* xl_http_share_new(void)
 {
-	AsyncWatchData *d = (AsyncWatchData *) w->data;
-	XLErrorCode ec;
-	char *buf;
-	XLHttp *lhr = d->request;
-	ghttp_request *req = lhr->req;
+    int i;
+	XLHttpShare *hs;
 
+	hs = s_malloc0(sizeof(XLHttpShare));
+	hs->share = curl_share_init();
+	curl_share_setopt(hs->share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+	curl_share_setopt(hs->share, CURLSHOPT_SHARE, CURL_LOCK_DATA_CONNECT);
+	curl_share_setopt(hs->share, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+	curl_share_setopt(hs->share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+	curl_share_setopt(hs->share, CURLSHOPT_LOCKFUNC, http_share_lock);
+	curl_share_setopt(hs->share, CURLSHOPT_UNLOCKFUNC, http_share_unlock);
+	curl_share_setopt(hs->share, CURLSHOPT_USERDATA, hs);
+    for(i=0;i<4;i++)
+        pthread_mutex_init(&hs->share_lock[i], NULL);
+	return hs;
+}
 
-	int status = ghttp_process(req);
-	if (status == ghttp_error) {
-		ec = XL_ERROR_ERROR;
-		goto done;
+void xl_http_share_free(XLHttpShare *hs)
+{
+	if(hs){
+		int i;
+		for(i=0;i<4;i++)
+			pthread_mutex_destroy(&hs->share_lock[i]);
+		curl_share_cleanup(hs->share);
+		s_free(hs);
 	}
+}
 
-	/* NOTE: buf may NULL, notice it */
-	buf = ghttp_get_body(req);
-	if (buf) {
-		int len;
-		len = ghttp_get_body_len(req);
-		lhr->response = s_realloc(lhr->response, lhr->resp_len + len);
-		memcpy(lhr->response + lhr->resp_len, buf, len);
-		lhr->resp_len += len;
+static void http_share_lock(CURL* handle, curl_lock_data data, curl_lock_access access, void* user_data)
+{
+	//this is shared access.
+	//no need to lock it.
+	if(access == CURL_LOCK_ACCESS_SHARED)
+		return;
+	XLHttpShare *hs = user_data;
+	int idx;
+	switch(data){
+		case CURL_LOCK_DATA_DNS:
+			idx=0;
+			break;
+		case CURL_LOCK_DATA_CONNECT:
+			idx=1;
+			break;
+		case CURL_LOCK_DATA_SSL_SESSION:
+			idx=2;
+			break;
+		case CURL_LOCK_DATA_COOKIE:
+			idx=3;
+			break;
+		default:
+			return;
 	}
-	if (status == ghttp_done) {
-		ec = XL_ERROR_OK;
-		goto done;
+	pthread_mutex_lock(&hs->share_lock[idx]);
+}
+
+static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data)
+{
+	int idx;
+	XLHttpShare *hs = user_data;
+	switch(data){
+		case CURL_LOCK_DATA_DNS:
+			idx=0;
+			break;
+		case CURL_LOCK_DATA_CONNECT:
+			idx=1;
+			break;
+		case CURL_LOCK_DATA_SSL_SESSION:
+			idx=2;
+			break;
+		case CURL_LOCK_DATA_COOKIE:
+			idx=3;
+			break;
+		default:
+			return;
 	}
-
-	/* Go on */
-	return ;
-
-done:
-	if (ec == XL_ERROR_OK && lhr->response) {
-		/* Uncompress data here if we have a Content-Encoding header */
-		char *enc_type = NULL;
-		enc_type = xl_http_get_header(lhr, "Content-Encoding");
-		if (enc_type && strstr(enc_type, "gzip")) {
-			char *outdata;
-			int total = 0;
-
-			outdata = ungzip(lhr->response, lhr->resp_len, &total);
-			if (outdata) {
-				s_free(lhr->response);
-				/* Update response data to uncompress data */
-				lhr->response = s_strdup(outdata);
-				s_free(outdata);
-				lhr->resp_len = total;
-			}
-		}
-		s_free(enc_type);
-
-		/* OK, done */
-		if (lhr->response[lhr->resp_len -1] != '\0') {
-			/* Realloc a byte, cause lhr->response hasn't end with char '\0' */
-			lhr->response = s_realloc(lhr->response, lhr->resp_len + 1);
-			lhr->response[lhr->resp_len] = '\0';
-		}
-	}
-
-	/* Callback */
-	d->callback(ec, lhr->response, d->data);
-
-	/* OK, exit this request */
-	ev_io_stop(EV_DEFAULT, w);
-	xl_http_free(d->request);
-	s_free(d);
-	s_free(w);
+	pthread_mutex_unlock(&hs->share_lock[idx]);
 }

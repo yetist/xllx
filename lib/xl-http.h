@@ -31,15 +31,16 @@ typedef enum
 	HTTP_POST = 3,
 } HttpMethod;
 
-//typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);
-
 typedef struct _XLHttp XLHttp;
+
+/* 在新创建的不同XLHttp对象之间保持的一个缓存对象，可缓存DNS解析、Cookie等等，用于提升性能。*/
+typedef struct _XLHttpShare XLHttpShare;
 
 XLHttp *xl_http_new(const char *url);
 XLHttp *xl_http_create_default(const char *url, XLErrorCode *err);
+void    xl_http_set_http_share(XLHttp *http, XLHttpShare *share);
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body);
-//int xl_http_open_async(XLHttp *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
 int xl_http_upload_file(XLHttp *request, const char *field, const char *path);
 
 void xl_http_set_header(XLHttp *request, const char *name, const char *value);
@@ -53,5 +54,8 @@ char* xl_http_get_body(XLHttp *request);
 int   xl_http_get_body_len(XLHttp *request);
 
 void xl_http_free(XLHttp *request);
+
+XLHttpShare* xl_http_share_new(void);
+void xl_http_share_free(XLHttpShare *hs);
 
 #endif  /* XL_HTTP_H */
