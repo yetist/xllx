@@ -26,8 +26,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <zlib.h>
-#include <ev.h>
-#include <ghttp.h>
+#include <curl/curl.h>
+//#include <ev.h>
+//#include <ghttp.h>
 #include "smemory.h"
 #include "xllx.h"
 #include "xl-http.h"
@@ -44,6 +45,7 @@ typedef struct _AsyncWatchData AsyncWatchData;
 
 struct _XLHttp
 {
+	CURL *curl;
 	ghttp_request *req;
 	int http_code;
 	char *response;
@@ -58,6 +60,8 @@ struct _AsyncWatchData
 	void *data;
 };
 
+static int initial_curl = 0;
+
 static int xl_async_running = -1;
 static pthread_t xl_async_tid;
 static pthread_cond_t xl_async_cond = PTHREAD_COND_INITIALIZER;
@@ -70,30 +74,37 @@ static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body
 
 XLHttp *xl_http_new(const char *uri)
 {
+	XLHttp *http;
+	CURLcode res;
+
 	if (!uri) {
 		return NULL;
 	}
 
-	XLHttp *request;
-	request = s_malloc0(sizeof(*request));
+	if (initial_curl == 0)
+		curl_global_init(CURL_GLOBAL_DEFAULT);
 
-	request->req = ghttp_request_new();
-	if (!request->req) {
-		/* Seem like request->req must be non null. FIXME */
+	http = s_malloc0(sizeof(*http));
+
+	http->curl = curl_easy_init();
+	if (!http->curl) {
+		/* Seem like http->req must be non null. FIXME */
 		goto failed;
 	}
-	if (ghttp_set_uri(request->req, (char *)uri) == -1) {
+	if (curl_easy_setopt(http->curl, CURLOPT_URL, uri) != CURLE_OK)
+		goto failed;
+	if (curl_easy_setopt(http->curl, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
+	{
 		xl_log(LOG_WARNING, "Invalid uri: %s\n", uri);
 		goto failed;
 	}
 
-	return request;
+	return http;
 
 failed:
-	if (request) {
-		xl_http_free(request);
+	if (http) {
+		xl_http_free(http);
 	}
-	return NULL;
 }
 
 XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
@@ -183,9 +194,30 @@ failed:
 
 static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len)
 {
-	if (!request->req)
+	if (!request->curl)
 		return -1;
+#if 0
+	CURLcode res;
 
+	curl = curl_easy_init();
+	if(curl) {
+		curl_easy_setopt(curl, CURLOPT_URL, "http://example.com");
+		/* example.com is redirected, so we tell libcurl to follow redirection */ 
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+		/* Perform the request, res will get the return code */ 
+		res = curl_easy_perform(curl);
+		/* Check for errors */ 
+		if(res != CURLE_OK)
+			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+					curl_easy_strerror(res));
+
+		/* always cleanup */ 
+		curl_easy_cleanup(curl);
+	}
+	return 0;
+	return NULL;
+#endif
 	ghttp_status status;
 	char *buf;
 	int have_read_bytes = 0;
@@ -336,10 +368,13 @@ void xl_http_set_header(XLHttp *request, const char *name, const char *value)
 		return ;
 
 	ghttp_set_header(request->req, name, value);
+	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 }
 
 static void xl_http_set_default_header(XLHttp *request)
 {
+
+
 	xl_http_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
 	xl_http_set_header(request, "Accept", "image/png,image/*;q=0.8,*/*;q=0.5");
 	xl_http_set_header(request, "Accept-Language", "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3");

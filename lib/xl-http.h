@@ -23,7 +23,6 @@
 #ifndef XL_HTTP_H
 #define XL_HTTP_H
 
-//#include <ghttp.h>
 #include "xl-errors.h"
 
 typedef enum
@@ -32,7 +31,7 @@ typedef enum
 	HTTP_POST = 3,
 } HttpMethod;
 
-typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);
+//typedef int (*XLAsyncCallback) (XLErrorCode ec, char *response, void* data);
 
 typedef struct _XLHttp XLHttp;
 
@@ -40,7 +39,7 @@ XLHttp *xl_http_new(const char *url);
 XLHttp *xl_http_create_default(const char *url, XLErrorCode *err);
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body);
-int xl_http_open_async(XLHttp *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
+//int xl_http_open_async(XLHttp *request, HttpMethod method, char *body, XLAsyncCallback callback, void *data);
 int xl_http_upload_file(XLHttp *request, const char *field, const char *path);
 
 void xl_http_set_header(XLHttp *request, const char *name, const char *value);
