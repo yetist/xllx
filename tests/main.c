@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "xllx.h"
+#include <xllx/xllx.h>
 
 void play_online_videos(XLVod *vod)
 {
@@ -65,6 +65,7 @@ void play_url_files(XLVod *vod, const char *path)
 		char *url;
 		len = strlen(buf);
 		buf[len-1] = '\0';
+		if (buf[0] == '#' || strlen(buf) < 12) continue;
 		url = xl_vod_get_video_url(vod, buf, VIDEO_1080P, &err);
 		if (url == NULL)
 		{
