@@ -434,7 +434,7 @@ static void get_verify_image(XLClient *client)
 			}
 			close(fd);
 		}
-		s_free(client->vimgpath);
+		//s_free(client->vimgpath);
 	}
 
 failed:
