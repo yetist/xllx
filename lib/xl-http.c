@@ -352,7 +352,6 @@ retry:
     const char *enc_type = NULL;
     enc_type = xl_http_get_header(request, "Content-Encoding");
     if (enc_type && strstr(enc_type, "gzip")) {
-		xl_log(LOG_DEBUG, "debug, gzip\n");
         uncompress_response(request);
     }
 
@@ -511,7 +510,6 @@ ec:
 //TODO
 int xl_http_has_cookie(XLHttp *request, const char* key)
 {
-	xl_log(LOG_DEBUG, "debug\n");
     int i, nums;
 	char **cookies;
 	int found = -1;
