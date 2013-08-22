@@ -62,6 +62,7 @@ libxllx_la_LIBADD =	\
 	$(GHTTP_LIBS)	\
 	$(ZLIB_LIBS) \
 	$(EV_LIBS) \
+	-lcurl \
 	$(JSON_LIBS)
 
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \

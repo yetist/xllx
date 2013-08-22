@@ -41,15 +41,27 @@
 #define CHUNK 1024 * 1024
 #define UPLOAD_FILE_MAX_SIZE 6291456
 
-typedef struct _AsyncWatchData AsyncWatchData;
+typedef enum{
+    HTTP_UNEXPECTED_RECV = 1<<1,
+    HTTP_FORCE_CANCEL = 1<<2
+}HttpBits;
+
+struct MemoryStruct {
+	char *memory;
+	size_t size;
+};
 
 struct _XLHttp
 {
 	CURL *curl;
 	XLHttpShare *hs;
 	int http_code;
+    char *location;
 	char *response;	//body
     int resp_len;	//body_len
+	HttpBits bits;
+	struct MemoryStruct trunk;
+	int retry;
 
 	struct curl_slist* header;
     struct curl_slist* recv_head;
@@ -62,27 +74,25 @@ struct _XLHttpShare
 {
 	CURLSH *share;
 	pthread_mutex_t share_lock[4];
-}
-
-/* Those Code for async API */
-struct _AsyncWatchData
-{
-	XLHttp *request;
-	XLAsyncCallback callback;
-	void *data;
 };
+
+typedef enum {
+    XL_FORM_FILE,// use add_file_content instead
+    XL_FORM_CONTENT
+} XL_FORM;
 
 static int initial_curl = 0;
 
-static int xl_async_running = -1;
-static pthread_t xl_async_tid;
-static pthread_cond_t xl_async_cond = PTHREAD_COND_INITIALIZER;
-
 static char *ungzip(const char *source, int len, int *total);
-static void *xl_async_thread(void* data);
-static void ev_io_come(EV_P_ ev_io* w,int revent);
 static void  xl_http_set_default_header(XLHttp *request);
 static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len);
+static size_t write_header(void *ptr, size_t size, size_t nmemb, void *user_data);
+static size_t write_content(const char* ptr, size_t size, size_t nmemb, void* user_data);
+static void http_share_lock(CURL* handle, curl_lock_data data, curl_lock_access access, void* user_data);
+static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data);
+static int curl_debug_redirect(CURL* h,curl_infotype t,char* msg,size_t len,void* data);
+static void uncompress_response(XLHttp* http);
+static void composite_trunks(XLHttp* req);
 
 XLHttp *xl_http_new(const char *uri)
 {
@@ -111,25 +121,20 @@ XLHttp *xl_http_new(const char *uri)
 		goto failed;
 	}
 
-    curl_easy_setopt(request->http, CURLOPT_HEADERFUNCTION, write_header);
-    curl_easy_setopt(request->http, CURLOPT_HEADERDATA, request);
-    curl_easy_setopt(request->http, CURLOPT_WRITEFUNCTION, write_content);
-    curl_easy_setopt(request->http, CURLOPT_WRITEDATA, request);
-    curl_easy_setopt(request->http, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt(request->http, CURLOPT_FOLLOWLOCATION, 1);
-    curl_easy_setopt(request->http, CURLOPT_CONNECTTIMEOUT, 30);
+    curl_easy_setopt(http->curl, CURLOPT_HEADERFUNCTION, write_header);
+    curl_easy_setopt(http->curl, CURLOPT_HEADERDATA, http);
+    curl_easy_setopt(http->curl, CURLOPT_WRITEFUNCTION, write_content);
+    curl_easy_setopt(http->curl, CURLOPT_WRITEDATA, http);
+    curl_easy_setopt(http->curl, CURLOPT_NOSIGNAL, 1);
+    curl_easy_setopt(http->curl, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(http->curl, CURLOPT_CONNECTTIMEOUT, 30);
     //set normal operate timeout to 30.official value.
-    //curl_easy_setopt(request->req,CURLOPT_TIMEOUT,30);
+    //curl_easy_setopt(http->curl,CURLOPT_TIMEOUT,30);
     //low speed: 5B/s
-    curl_easy_setopt(request->http, CURLOPT_LOW_SPEED_LIMIT, 8*5);
-    curl_easy_setopt(request->http, CURLOPT_LOW_SPEED_TIME, 30);
-    curl_easy_setopt(request->http, CURLOPT_SSL_VERIFYPEER, 0);
-    curl_easy_setopt(request->http, CURLOPT_DEBUGFUNCTION, curl_debug_redirect);
-    request->do_request = lwqq_http_do_request;
-    request->set_header = lwqq_http_set_header;
-    request->get_header = lwqq_http_get_header;
-    request->add_form = lwqq_http_add_form;
-    request->add_file_content = lwqq_http_add_file_content;
+    curl_easy_setopt(http->curl, CURLOPT_LOW_SPEED_LIMIT, 8*5);
+    curl_easy_setopt(http->curl, CURLOPT_LOW_SPEED_TIME, 30);
+    curl_easy_setopt(http->curl, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_easy_setopt(http->curl, CURLOPT_DEBUGFUNCTION, curl_debug_redirect);
 
     return http;
 
@@ -142,7 +147,7 @@ failed:
 
 XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 {
-	XLHttp *req;
+	XLHttp *http;
 
 	if (!url) {
 		if (err)
@@ -150,26 +155,34 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 		return NULL;
 	}
 
-	req = xl_http_new(url);
-	if (!req) {
+	http = xl_http_new(url);
+	if (!http) {
 		//xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
 		if (err)
 			*err = XL_ERROR_ERROR;
 		return NULL;
 	}
 
-	xl_http_set_default_header(req);
+	xl_http_set_default_header(http);
+	/*
 	if (http->hs)
 	{
-		curl_easy_setopt(http->curl, CURLOPT_SHARE, hs->share);
+		xl_log(LOG_DEBUG, "create share\n");
+		curl_easy_setopt(http->curl, CURLOPT_SHARE, http->hs->share);
 	}
-	//xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
-	return req;
+	xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
+	*/
+	return http;
 }
 
 void    xl_http_set_http_share(XLHttp *http, XLHttpShare *hs)
 {
-	http->hs = hs;
+	if (!http->hs)
+	{
+		http->hs = hs;
+		xl_log(LOG_DEBUG, "create share\n");
+		curl_easy_setopt(http->curl, CURLOPT_SHARE, hs->share);
+	}
 }
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body)
@@ -234,6 +247,52 @@ failed:
 	return -1;
 }
 
+static void http_clean(XLHttp* req)
+{
+    composite_trunks(req);
+    s_free(req->response);
+    req->resp_len = 0;
+    req->http_code = 0;
+    curl_slist_free_all(req->recv_head);
+    req->recv_head = NULL;
+    req->bits = 0;
+}
+
+static void composite_trunks(XLHttp* req)
+{
+	struct MemoryStruct *mem = &req->trunk;
+	xl_log(LOG_DEBUG, "debug, size=%d\n", mem->size);
+
+	if (mem->size == 0)
+	{
+		req->response = NULL;
+		req->resp_len = 0;
+	}else{
+		xl_log(LOG_DEBUG, "debug, size=%d, body=%s\n", mem->size, mem->memory);
+		req->response = s_malloc0(mem->size);
+		req->resp_len = mem->size;
+        memcpy(req->response, mem->memory, mem->size);
+
+	}
+
+#if 0
+    size_t size = 0;
+    struct trunk_entry* trunk;
+    SIMPLEQ_FOREACH(trunk,&req_->trunks,entries){
+        size += trunk->size;
+    }
+    req->response = s_malloc0(size+10);
+    req->resp_len = 0;
+    while((trunk = SIMPLEQ_FIRST(&req_->trunks))){
+        SIMPLEQ_REMOVE_HEAD(&req_->trunks,entries);
+        memcpy(req->response+req->resp_len,trunk->trunk,trunk->size);
+        req->resp_len+=trunk->size;
+        s_free(trunk->trunk);
+        s_free(trunk);
+    }
+#endif
+}
+
 // return 0 for success.
 static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len)
 {
@@ -241,8 +300,8 @@ static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body
         return -1;
 
     CURLcode ret;
-    LwqqHttpRequest_* req_ = (LwqqHttpRequest_*) request;
-    req_->retry_ = request->retry;
+    //XLHttp * req_ = (XLHttp*) request;
+    //req_->retry_ = request->retry;
 retry:
     ret=0;
     char **resp = &request->response;
@@ -264,14 +323,23 @@ retry:
     composite_trunks(request);
     if(ret != CURLE_OK){
         xl_log(LOG_ERROR,"do_request fail curlcode:%d\n",ret);
-        LwqqErrorCode ec;
-        if(set_error_code(request, ret, &ec)){
-            goto retry;
-        }
-        return ec;
+        //LwqqErrorCode ec;
+		if(ret == CURLE_ABORTED_BY_CALLBACK && request->bits & HTTP_FORCE_CANCEL){
+			request->retry = 0;
+		}
+		if(ret == CURLE_TOO_MANY_REDIRECTS){
+			request->retry = 0;
+		}
+		if(ret == CURLE_COULDNT_RESOLVE_HOST)
+			request->retry = 0;
+		request->retry--;
+		if(request->retry >= 0){
+			goto retry;
+		}
+        return -1;
     }
     //perduce timeout.
-    req_->retry_ = request->retry;
+    //req->retry_ = request->retry;
     curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, &request->http_code);
 
     // NB: *response may null 
@@ -284,6 +352,7 @@ retry:
     const char *enc_type = NULL;
     enc_type = xl_http_get_header(request, "Content-Encoding");
     if (enc_type && strstr(enc_type, "gzip")) {
+		xl_log(LOG_DEBUG, "debug, gzip\n");
         uncompress_response(request);
     }
 
@@ -299,7 +368,7 @@ failed:
 
 void xl_http_set_header(XLHttp *request, const char *name, const char *value)
 {
-	if (!request->req || !name || !value)
+	if (!request->curl || !name || !value)
 		return ;
 
     //use libcurl internal cookie engine
@@ -330,7 +399,7 @@ void xl_http_set_header(XLHttp *request, const char *name, const char *value)
         request->header = curl_slist_append((struct curl_slist*)request->header,opt);
     }
 
-    curl_easy_setopt(request->req, CURLOPT_HTTPHEADER, request->header);
+    curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->header);
     s_free(opt);
 }
 
@@ -371,38 +440,124 @@ char *xl_http_get_header(XLHttp *request, const char *name)
  */
 int xl_http_get_cookie_names(XLHttp *request, char ***names)
 {
-    int ret;
-    char **cookies;
-    int nums;
-    ret = ghttp_get_cookie_names(request->req, &cookies, &nums);
-    if (ret != 0)
-    {
-        return 0;
-    }
-    *names = cookies;
-    return nums;
+	if (names == NULL)
+		return -1;
+
+	*names = NULL;
+
+	int l_num_cookies = 0;
+	char **l_cookies;
+	if (request->hs)
+	{
+		struct curl_slist* list;
+		struct curl_slist* p;
+		CURL* easy = curl_easy_init();
+		curl_easy_setopt(easy, CURLOPT_SHARE, request->hs->share);
+		curl_easy_getinfo(easy, CURLINFO_COOKIELIST, &list);
+		curl_easy_cleanup(easy);
+
+		p = list;
+		while (p != NULL)
+		{
+			l_num_cookies++;
+			p = p->next;
+		}
+		if (l_num_cookies == 0)
+			return 0;
+		l_cookies = s_malloc0(sizeof(char *) * l_num_cookies);
+		if (l_cookies == NULL)
+			return -1;
+
+		char* n,*v;
+		int j=0;
+		p = list;
+		while (p != NULL)
+		{
+			v = strrchr(p->data,'\t')+1;
+			n = v-2;
+			while(n--, *n!='\t');
+			n++;
+			l_cookies[j] = strndup(n, v-n-1);
+			if (l_cookies[j] == NULL)
+				goto ec;
+			p = p->next;
+			j++;
+		}
+	}
+	*names = l_cookies;
+	//*a_num_cookies = l_num_cookies;
+	return l_num_cookies;
+ec:
+	if (l_cookies)
+	{
+		int i;
+		for (i=0; i < l_num_cookies; i++)
+		{
+			if (l_cookies[i])
+			{
+				free(l_cookies[i]);
+				l_cookies[i] = NULL;
+			}
+		}
+		free(l_cookies);
+		*names = NULL;
+	}
+	//*a_num_cookies = 0;
+	return -1;
 }
+#if 0
+#endif
 
 //TODO
 int xl_http_has_cookie(XLHttp *request, const char* key)
 {
+	xl_log(LOG_DEBUG, "debug\n");
     int i, nums;
 	char **cookies;
 	int found = -1;
 	char keyname[256];
 
+#if 0
+	if (request->hs)
+	{
+		struct curl_slist* list;
+		CURL* easy = curl_easy_init();
+		curl_easy_setopt(easy, CURLOPT_SHARE, request->hs->share);
+		curl_easy_getinfo(easy, CURLINFO_COOKIELIST, &list);
+		curl_easy_cleanup(easy);
+		char* n,*v;
+		while(list!=NULL){
+			v = strrchr(list->data,'\t')+1;
+			n = v-2;
+			while(n--,*n!='\t');
+			n++;
+			if(v-n-1 == strlen(key) && strncmp(key,n,v-n-1)==0){
+				return s_strdup(v);
+			}
+			list = list->next;
+		}
+	}
+#endif
+
 	snprintf(keyname, sizeof(keyname), "%s=", key);
+			xl_log(LOG_DEBUG, "debug\n");
 	nums = xl_http_get_cookie_names(request, &cookies);
+			xl_log(LOG_DEBUG, "debug\n");
 	if (nums == 0)
 		return found;
+			xl_log(LOG_DEBUG, "debug\n");
     for (i=0 ; i < nums; i++)
     {
-        if (cookies[i] != NULL && strncmp(cookies[i], keyname, strlen(keyname)) == 0){
+		xl_log(LOG_DEBUG, "debug, cookies[i]=%s, key=%s\n", cookies[i], key);
+        if (cookies[i] != NULL && strncmp(cookies[i], key, strlen(key)) == 0)
+		{
+			xl_log(LOG_DEBUG, "debug\n");
 			found = 0;
 			break;
         }
     }
 
+			xl_log(LOG_DEBUG, "debug\n");
     for (i=0 ; i < nums; i++)
     {
         if (cookies[i] != NULL){
@@ -412,6 +567,7 @@ int xl_http_has_cookie(XLHttp *request, const char* key)
 	}
 	s_free(cookies);
 
+	xl_log(LOG_DEBUG, "debug, found=%d\n", found);
 	return found;
 }
 
@@ -429,18 +585,37 @@ char *xl_http_get_cookie(XLHttp *request, const char *name)
 		curl_easy_getinfo(easy, CURLINFO_COOKIELIST, &list);
 		curl_easy_cleanup(easy);
 		char* n,*v;
-		while(list!=NULL){
+		while (list != NULL)
+		{
 			v = strrchr(list->data,'\t')+1;
 			n = v-2;
-			while(n--,*n!='\t');
+			while(n--, *n!='\t');
 			n++;
-			if(v-n-1 == strlen(name) && strncmp(name,n,v-n-1)==0){
+			if(v-n-1 == strlen(name) && strncmp(name,n,v-n-1)==0)
+			{
+				//xl_log(LOG_DEBUG, "debug, name=%s, v=%s\n", name, v);
 				return s_strdup(v);
 			}
 			list = list->next;
 		}
 	}
     return NULL;
+}
+
+void xl_http_set_cookie(XLHttp *request, const char *name, const char* value)
+{
+	char buf[1024];
+	if (!name) {
+		xl_log(LOG_ERROR, "Invalid parameter\n");
+		return ; 
+	}
+
+	if(!value)
+		value = "";
+
+	snprintf(buf, sizeof(buf), "%s=%s", name, value);
+
+	curl_easy_setopt(request->curl, CURLOPT_COOKIE, buf);
 }
 
 int xl_http_get_status(XLHttp *request)
@@ -465,7 +640,14 @@ void xl_http_free(XLHttp *request)
 
 	if (request) {
 		s_free(request->response);
-		ghttp_request_destroy(request->req);
+		s_free(request->location);
+        curl_slist_free_all(request->header);
+        curl_slist_free_all(request->recv_head);
+        curl_formfree(request->form_start);
+        if(request->curl)
+		{
+            curl_easy_cleanup(request->curl);
+        }
 		s_free(request);
 	}
 }
@@ -476,7 +658,8 @@ static void uncompress_response(XLHttp* http)
     char **resp = &http->response;
     int total = 0;
 
-    outdata = ungzip(*resp, req->resp_len, &total);
+    outdata = ungzip(*resp, http->resp_len, &total);
+	xl_log(LOG_DEBUG, "body_len=%d, body=%s\n", strlen(outdata), outdata);
     if (!outdata) return;
 
     s_free(*resp);
@@ -570,27 +753,29 @@ static char *ungzip(const char *source, int len, int *total)
 	return unzlib(source, len, total, 1);
 }
 
-static size_t write_header( void *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t write_header(void *ptr, size_t size, size_t nmemb, void *user_data)
 {
     char* str = (char*)ptr;
-    LwqqHttpRequest* request = (LwqqHttpRequest*) userdata;
+    XLHttp* request = (XLHttp*) user_data;
 
     long http_code;
-    curl_easy_getinfo(request->req,CURLINFO_RESPONSE_CODE,&http_code);
+    curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, &http_code);
     //this is a redirection. ignore it.
-    if(http_code == 301||http_code == 302){
-        if(strncmp(str,"Location",strlen("Location"))==0){
+    if(http_code == 301||http_code == 302)
+	{
+        if(strncmp(str, "Location", strlen("Location"))==0 )
+		{
             const char* location = str+strlen("Location: ");
             request->location = s_strdup(location);
             int len = strlen(request->location);
             //remove the last \r\n
-            request->location[len-1] = 0;
-            request->location[len-2] = 0;
-            lwqq_verbose(3,"Location: %s\n",request->location);
+            request->location[len-1] = '\0';
+            request->location[len-2] = '\0';
+            xl_log(LOG_DEBUG, "Location: %s\n", request->location);
         }
         return size*nmemb;
     }
-    request->recv_head = curl_slist_append(request->recv_head,(char*)ptr);
+    request->recv_head = curl_slist_append(request->recv_head, (char*)ptr);
     //read cookie from header;
     /*if(strncmp(str,"Set-Cookie",strlen("Set-Cookie"))==0){
         struct cookie_list * node = s_malloc0(sizeof(*node));
@@ -603,6 +788,102 @@ static size_t write_header( void *ptr, size_t size, size_t nmemb, void *userdata
         }
     }*/
     return size*nmemb;
+}
+
+static size_t write_content(const char* contents, size_t size, size_t nmemb, void* user_data)
+{
+    long http_code;
+
+    XLHttp* req = (XLHttp*) user_data;
+
+	size_t realsize = size * nmemb;
+
+	//struct MemoryStruct *mem = (struct MemoryStruct *)userp;
+	struct MemoryStruct *mem = &req->trunk;
+
+    curl_easy_getinfo(req->curl, CURLINFO_RESPONSE_CODE, &http_code);
+	xl_log(LOG_DEBUG, "debug\n");
+    //this is a redirection. ignore it.
+    if(http_code == 301||http_code == 302){
+        return realsize;
+    }
+
+	mem->memory = realloc(mem->memory, mem->size + realsize + 1);
+	if(mem->memory == NULL) {
+		/* out of memory! */ 
+		printf("not enough memory (realloc returned NULL)\n");
+		return 0;
+	}
+
+	memcpy(&(mem->memory[mem->size]), contents, realsize);
+	mem->size += realsize;
+	mem->memory[mem->size] = 0;
+
+	return realsize;
+	//
+#if 0
+
+    long http_code;
+    size_t sz_ = size*nmemb;
+    curl_easy_getinfo(req->curl, CURLINFO_RESPONSE_CODE, &http_code);
+	xl_log(LOG_DEBUG, "debug\n");
+    //this is a redirection. ignore it.
+    if(http_code == 301||http_code == 302){
+        return sz_;
+    }
+	xl_log(LOG_DEBUG, "debug\n");
+    char* position = NULL;
+    double length = 0.0;
+	xl_log(LOG_DEBUG, "debug\n");
+    curl_easy_getinfo(req->curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
+	xl_log(LOG_DEBUG, "debug\n");
+    if(req->response==NULL)
+	{
+	xl_log(LOG_DEBUG, "debug, length=%g\n", length);
+        if(length!=-1.0&&length!=0.0){
+	xl_log(LOG_DEBUG, "debug\n");
+            req->response = s_malloc0((unsigned long)(length)+10);
+            position = req->response;
+        }
+        req->resp_len = 0;
+    }
+	xl_log(LOG_DEBUG, "debug\n");
+    if(req->response){
+	xl_log(LOG_DEBUG, "debug\n");
+        position = req->response + req->resp_len;
+        if(req->resp_len+sz_>(unsigned long)length){
+            req->bits |= HTTP_UNEXPECTED_RECV;
+            //assert(0);
+            xl_log(LOG_WARNING, "[http unexpected]\n");
+            return 0;
+        }
+    } /*
+		 else{
+        struct trunk_entry* trunk = s_malloc0(sizeof(*trunk));
+        trunk->size = sz_;
+        trunk->trunk = s_malloc0(sz_);
+        position = trunk->trunk;
+        SIMPLEQ_INSERT_TAIL(&req_->trunks,trunk,entries);
+    }
+*/
+	xl_log(LOG_DEBUG, "debug, ptr=%s, strlen(ptr)=%d, length=%d\n", ptr, strlen(ptr), length);
+    memcpy(position,ptr,sz_);
+	xl_log(LOG_DEBUG, "debug\n");
+    req->resp_len+=sz_;
+	xl_log(LOG_DEBUG, "debug\n");
+    return sz_;
+#endif
+}
+
+static int curl_debug_redirect(CURL* h,curl_infotype t,char* msg,size_t len,void* data)
+{
+    static char buffer[8192*10];
+    size_t sz = sizeof(buffer)-1;
+    sz = sz>len?sz:len;
+    strncpy(buffer,msg,sz);
+    buffer[sz] = 0;
+    xl_log(LOG_DEBUG, "%s", buffer);
+    return 0;
 }
 
 XLHttpShare* xl_http_share_new(void)
@@ -683,4 +964,60 @@ static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data
 			return;
 	}
 	pthread_mutex_unlock(&hs->share_lock[idx]);
+}
+
+static void xl_http_add_form(XLHttp* request, XL_FORM form, const char* name, const char* value)
+{
+    struct curl_httppost** post = (struct curl_httppost**)&request->form_start;
+    struct curl_httppost** last = (struct curl_httppost**)&request->form_end;
+    switch(form){
+        case XL_FORM_FILE:
+            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_FILE, value, CURLFORM_END);
+            break;
+        case XL_FORM_CONTENT:
+            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_COPYCONTENTS, value, CURLFORM_END);
+            break;
+    }
+    curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
+}
+
+static void xl_http_add_file_content(XLHttp* request, const char* name,
+        const char* filename, const void* data, size_t size, const char* extension)
+{
+    struct curl_httppost** post = (struct curl_httppost**)&request->form_start;
+    struct curl_httppost** last = (struct curl_httppost**)&request->form_end;
+    char *type = NULL;
+    if(extension == NULL){
+        extension = strrchr(filename,'.');
+        if(extension !=NULL) extension++;
+    }
+    if(extension == NULL) type = NULL;
+    else{
+        if(strcmp(extension,"jpg")==0||strcmp(extension,"jpeg")==0)
+            type = "image/jpeg";
+        else if(strcmp(extension,"png")==0)
+            type = "image/png";
+        else if(strcmp(extension,"gif")==0)
+            type = "image/gif";
+        else if(strcmp(extension,"bmp")==0)
+            type = "image/bmp";
+        else type = NULL;
+    }
+    if(type==NULL){
+        curl_formadd(post,last,
+                CURLFORM_COPYNAME,name,
+                CURLFORM_BUFFER,filename,
+                CURLFORM_BUFFERPTR,data,
+                CURLFORM_BUFFERLENGTH,size,
+                CURLFORM_END);
+    }else{
+        curl_formadd(post,last,
+                CURLFORM_COPYNAME,name,
+                CURLFORM_BUFFER,filename,
+                CURLFORM_BUFFERPTR,data,
+                CURLFORM_BUFFERLENGTH,size,
+                CURLFORM_CONTENTTYPE,type,
+                CURLFORM_END);
+    }
+    curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
 }

@@ -79,7 +79,7 @@ void play_url_files(XLVod *vod, const char *path)
 			}
 
 		} else {
-			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  play_url is %s\n", url);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  commandline for play is: mplayer -referrer \"http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.991.01\" \"%s\" \n", url);
 			free(url);
 		}
 	}

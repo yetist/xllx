@@ -43,6 +43,7 @@ struct _XLClient
 	char *vcode;
 	char *vimgpath;
     XLCookies *cookies;
+	XLHttpShare *hs;
 };
 static void  get_verify_code(XLClient *client, XLErrorCode *err);
 static void  get_verify_image(XLClient *client);
@@ -62,6 +63,7 @@ XLClient *xl_client_new(const char *username, const char *password)
 	client->username = s_strdup(username);
 	client->password = s_strdup(password);
 	client->cookies = xl_cookies_new();
+	client->hs = xl_http_share_new();
 
 	return client;
 }
@@ -88,19 +90,25 @@ int xl_client_check_verify_code(XLClient *client, XLErrorCode *err)
 
 	create_post_data(client, msg, sizeof(msg));
 	req = client_open_url(client, "http://login.xunlei.com/sec2login/", HTTP_POST, msg, NULL, err);
+	xl_log(LOG_DEBUG, "debug\n");
 	if (req == NULL)
 		return -1;
+	xl_log(LOG_DEBUG, "debug\n");
 	if (xl_http_get_status(req) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	if (xl_http_has_cookie(req, "userid") != 0)
 	{
+	xl_log(LOG_DEBUG, "debug\n");
     	*err = XL_ERROR_LOGIN_NEED_VC;
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	ret = 0;
+	client_show_cookie_names(req);
 	xl_cookies_receive(client->cookies, req, 1);
 failed:
 	xl_http_free(req);
@@ -116,19 +124,26 @@ int do_login(XLClient *client, XLErrorCode *err)
 	//http://dynamic.cloud.vip.xunlei.com/login?cachetime=1375861841423&cachetime=1375861842103&from=0
 	snprintf(url, sizeof(url), "http://dynamic.cloud.vip.xunlei.com/login?cachetime=%ld&from=0", get_current_timestamp());
 	xl_cookies_set_pagenum(client->cookies, "1");
+	xl_log(LOG_DEBUG, "debug\n");
 	req = client_open_url(client, url, HTTP_GET, NULL, NULL, err);
+	xl_log(LOG_DEBUG, "debug\n");
 	xl_cookies_set_pagenum(client->cookies, DEFAULT_PAGENUM);
+	xl_log(LOG_DEBUG, "debug\n");
 	if (req == NULL){
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	xl_cookies_receive(client->cookies, req, 1);
 	int status_code = xl_http_get_status(req);
-	if (status_code != 302)
+	xl_log(LOG_DEBUG, "debug, status_code=%d\n", status_code);
+	if (status_code != 200)
 	{
-		//printf("[----html----\n%s\n----html----]\n", xl_http_get_response(req));
+		xl_log(LOG_DEBUG, "debug\n");
+		printf("[----html----\n%s\n----html----]\n", xl_http_get_body(req));
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	xl_cookies_clear_sessionid(client->cookies);
 	xl_cookies_clear_lx_login(client->cookies);
 	xl_cookies_clear_lx_sessionid(client->cookies);
@@ -309,13 +324,14 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 	if (!req) {
 		goto failed;
 	}
+	xl_http_set_http_share(req, client->hs);
     xl_log(LOG_NOTICE, "URL[%s]\n", url);
-    cookies = xl_cookies_get_string_line(client->cookies);
-    if (cookies != NULL) {
-		//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
-		xl_http_set_header(req, "Cookie", cookies);
-        s_free(cookies);
-    }
+//    cookies = xl_cookies_get_string_line(client->cookies);
+//    if (cookies != NULL) {
+//		//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
+//		xl_http_set_header(req, "Cookie", cookies);
+//        s_free(cookies);
+//    }
     if (refer != NULL) {
 		//xl_log(LOG_NOTICE, "Refer[%s]\n", refer);
 		xl_http_set_header(req, "Refer", refer);
@@ -338,9 +354,9 @@ static XLHttp *client_open_url(XLClient *client, const char *url, HttpMethod met
 		*err = XL_ERROR_HTTP_TIMEOUT;
 		goto failed;
 	}
-//	if (xl_http_get_body_len(req) <= 9000)
-//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
-	//client_show_cookie_names(req);
+	if (xl_http_get_body_len(req) <= 9000)
+		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(req), xl_http_get_body(req));
+	client_show_cookie_names(req);
 	return req;
 failed:
 	xl_http_free(req);
@@ -371,17 +387,22 @@ static void get_verify_code(XLClient *client, XLErrorCode *err)
 	XLHttp *req;
 	char url[512];
 
+	xl_log(LOG_DEBUG, "debug\n");
 	snprintf(url, sizeof(url), "http://login.xunlei.com/check?u=%s&cachetime=%ld", client->username, get_current_timestamp());
 	req = client_open_url(client, url, HTTP_GET, NULL, NULL, err);
+	xl_log(LOG_DEBUG, "debug\n");
 	if (req == NULL){
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 
 	if (xl_http_get_status(req) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
+	client_show_cookie_names(req);
 
 	xl_cookies_receive(client->cookies, req, 1);
 	char* check_result;
@@ -434,7 +455,7 @@ static void get_verify_image(XLClient *client)
 			}
 			close(fd);
 		}
-		s_free(client->vimgpath);
+		//s_free(client->vimgpath);
 	}
 
 failed:
