@@ -164,14 +164,6 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 	}
 
 	xl_http_set_default_header(http);
-	/*
-	if (http->hs)
-	{
-		xl_log(LOG_DEBUG, "create share\n");
-		curl_easy_setopt(http->curl, CURLOPT_SHARE, http->hs->share);
-	}
-	xl_log(LOG_DEBUG, "Create request object for url: %s sucessfully\n", url);
-	*/
 	return http;
 }
 
@@ -180,7 +172,6 @@ void    xl_http_set_http_share(XLHttp *http, XLHttpShare *hs)
 	if (!http->hs)
 	{
 		http->hs = hs;
-		xl_log(LOG_DEBUG, "create share\n");
 		curl_easy_setopt(http->curl, CURLOPT_SHARE, hs->share);
 	}
 }
@@ -261,36 +252,18 @@ static void http_clean(XLHttp* req)
 static void composite_trunks(XLHttp* req)
 {
 	struct MemoryStruct *mem = &req->trunk;
-	xl_log(LOG_DEBUG, "debug, size=%d\n", mem->size);
 
 	if (mem->size == 0)
 	{
 		req->response = NULL;
 		req->resp_len = 0;
 	}else{
-		xl_log(LOG_DEBUG, "debug, size=%d, body=%s\n", mem->size, mem->memory);
+		if (req->response)
+			s_free(req->response);
 		req->response = s_malloc0(mem->size);
 		req->resp_len = mem->size;
         memcpy(req->response, mem->memory, mem->size);
-
 	}
-
-#if 0
-    size_t size = 0;
-    struct trunk_entry* trunk;
-    SIMPLEQ_FOREACH(trunk,&req_->trunks,entries){
-        size += trunk->size;
-    }
-    req->response = s_malloc0(size+10);
-    req->resp_len = 0;
-    while((trunk = SIMPLEQ_FIRST(&req_->trunks))){
-        SIMPLEQ_REMOVE_HEAD(&req_->trunks,entries);
-        memcpy(req->response+req->resp_len,trunk->trunk,trunk->size);
-        req->resp_len+=trunk->size;
-        s_free(trunk->trunk);
-        s_free(trunk);
-    }
-#endif
 }
 
 // return 0 for success.
@@ -300,8 +273,6 @@ static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body
         return -1;
 
     CURLcode ret;
-    //XLHttp * req_ = (XLHttp*) request;
-    //req_->retry_ = request->retry;
 retry:
     ret=0;
     char **resp = &request->response;
@@ -323,7 +294,6 @@ retry:
     composite_trunks(request);
     if(ret != CURLE_OK){
         xl_log(LOG_ERROR,"do_request fail curlcode:%d\n",ret);
-        //LwqqErrorCode ec;
 		if(ret == CURLE_ABORTED_BY_CALLBACK && request->bits & HTTP_FORCE_CANCEL){
 			request->retry = 0;
 		}
@@ -339,7 +309,6 @@ retry:
         return -1;
     }
     //perduce timeout.
-    //req->retry_ = request->retry;
     curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, &request->http_code);
 
     // NB: *response may null 
@@ -410,7 +379,6 @@ static void xl_http_set_default_header(XLHttp *request)
 	xl_http_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
 	xl_http_set_header(request, "Accept-Encoding", "gzip, deflate");
 	xl_http_set_header(request, "Connection", "Keep-Alive");
-
 }
 
 char *xl_http_get_header(XLHttp *request, const char *name)
@@ -435,7 +403,6 @@ char *xl_http_get_header(XLHttp *request, const char *name)
 
 /*
  * return count of cookies
- * TODO
  */
 int xl_http_get_cookie_names(XLHttp *request, char ***names)
 {
@@ -484,7 +451,6 @@ int xl_http_get_cookie_names(XLHttp *request, char ***names)
 		}
 	}
 	*names = l_cookies;
-	//*a_num_cookies = l_num_cookies;
 	return l_num_cookies;
 ec:
 	if (l_cookies)
@@ -501,61 +467,27 @@ ec:
 		free(l_cookies);
 		*names = NULL;
 	}
-	//*a_num_cookies = 0;
 	return -1;
 }
-#if 0
-#endif
 
-//TODO
 int xl_http_has_cookie(XLHttp *request, const char* key)
 {
     int i, nums;
 	char **cookies;
 	int found = -1;
-	char keyname[256];
 
-#if 0
-	if (request->hs)
-	{
-		struct curl_slist* list;
-		CURL* easy = curl_easy_init();
-		curl_easy_setopt(easy, CURLOPT_SHARE, request->hs->share);
-		curl_easy_getinfo(easy, CURLINFO_COOKIELIST, &list);
-		curl_easy_cleanup(easy);
-		char* n,*v;
-		while(list!=NULL){
-			v = strrchr(list->data,'\t')+1;
-			n = v-2;
-			while(n--,*n!='\t');
-			n++;
-			if(v-n-1 == strlen(key) && strncmp(key,n,v-n-1)==0){
-				return s_strdup(v);
-			}
-			list = list->next;
-		}
-	}
-#endif
-
-	snprintf(keyname, sizeof(keyname), "%s=", key);
-			xl_log(LOG_DEBUG, "debug\n");
 	nums = xl_http_get_cookie_names(request, &cookies);
-			xl_log(LOG_DEBUG, "debug\n");
 	if (nums == 0)
 		return found;
-			xl_log(LOG_DEBUG, "debug\n");
     for (i=0 ; i < nums; i++)
     {
-		xl_log(LOG_DEBUG, "debug, cookies[i]=%s, key=%s\n", cookies[i], key);
         if (cookies[i] != NULL && strncmp(cookies[i], key, strlen(key)) == 0)
 		{
-			xl_log(LOG_DEBUG, "debug\n");
 			found = 0;
 			break;
         }
     }
 
-			xl_log(LOG_DEBUG, "debug\n");
     for (i=0 ; i < nums; i++)
     {
         if (cookies[i] != NULL){
@@ -565,7 +497,6 @@ int xl_http_has_cookie(XLHttp *request, const char* key)
 	}
 	s_free(cookies);
 
-	xl_log(LOG_DEBUG, "debug, found=%d\n", found);
 	return found;
 }
 
@@ -657,7 +588,6 @@ static void uncompress_response(XLHttp* http)
     int total = 0;
 
     outdata = ungzip(*resp, http->resp_len, &total);
-	xl_log(LOG_DEBUG, "body_len=%d, body=%s\n", strlen(outdata), outdata);
     if (!outdata) return;
 
     s_free(*resp);
@@ -796,11 +726,9 @@ static size_t write_content(const char* contents, size_t size, size_t nmemb, voi
 
 	size_t realsize = size * nmemb;
 
-	//struct MemoryStruct *mem = (struct MemoryStruct *)userp;
 	struct MemoryStruct *mem = &req->trunk;
 
     curl_easy_getinfo(req->curl, CURLINFO_RESPONSE_CODE, &http_code);
-	xl_log(LOG_DEBUG, "debug\n");
     //this is a redirection. ignore it.
     if(http_code == 301||http_code == 302){
         return realsize;
@@ -818,59 +746,6 @@ static size_t write_content(const char* contents, size_t size, size_t nmemb, voi
 	mem->memory[mem->size] = 0;
 
 	return realsize;
-	//
-#if 0
-
-    long http_code;
-    size_t sz_ = size*nmemb;
-    curl_easy_getinfo(req->curl, CURLINFO_RESPONSE_CODE, &http_code);
-	xl_log(LOG_DEBUG, "debug\n");
-    //this is a redirection. ignore it.
-    if(http_code == 301||http_code == 302){
-        return sz_;
-    }
-	xl_log(LOG_DEBUG, "debug\n");
-    char* position = NULL;
-    double length = 0.0;
-	xl_log(LOG_DEBUG, "debug\n");
-    curl_easy_getinfo(req->curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
-	xl_log(LOG_DEBUG, "debug\n");
-    if(req->response==NULL)
-	{
-	xl_log(LOG_DEBUG, "debug, length=%g\n", length);
-        if(length!=-1.0&&length!=0.0){
-	xl_log(LOG_DEBUG, "debug\n");
-            req->response = s_malloc0((unsigned long)(length)+10);
-            position = req->response;
-        }
-        req->resp_len = 0;
-    }
-	xl_log(LOG_DEBUG, "debug\n");
-    if(req->response){
-	xl_log(LOG_DEBUG, "debug\n");
-        position = req->response + req->resp_len;
-        if(req->resp_len+sz_>(unsigned long)length){
-            req->bits |= HTTP_UNEXPECTED_RECV;
-            //assert(0);
-            xl_log(LOG_WARNING, "[http unexpected]\n");
-            return 0;
-        }
-    } /*
-		 else{
-        struct trunk_entry* trunk = s_malloc0(sizeof(*trunk));
-        trunk->size = sz_;
-        trunk->trunk = s_malloc0(sz_);
-        position = trunk->trunk;
-        SIMPLEQ_INSERT_TAIL(&req_->trunks,trunk,entries);
-    }
-*/
-	xl_log(LOG_DEBUG, "debug, ptr=%s, strlen(ptr)=%d, length=%d\n", ptr, strlen(ptr), length);
-    memcpy(position,ptr,sz_);
-	xl_log(LOG_DEBUG, "debug\n");
-    req->resp_len+=sz_;
-	xl_log(LOG_DEBUG, "debug\n");
-    return sz_;
-#endif
 }
 
 static int curl_debug_redirect(CURL* h,curl_infotype t,char* msg,size_t len,void* data)
