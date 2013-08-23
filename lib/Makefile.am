@@ -7,9 +7,6 @@ else
 DEBUG_FLAGS = -DNDEBUG
 endif
 
-SUBDIRS = libghttp
-DIST_SUBDIRS = libghttp
-
 XLLX_C_FILES = 		\
 	xl-client.c 	\
 	xl-http.c 	\
@@ -53,13 +50,11 @@ libxllx_la_SOURCES = 	\
 libxllx_la_CFLAGS =	\
 	$(DEBUG_FLAGS) \
 	$(ZLIB_FLAGS) \
-	$(GHTTP_CFLAGS)\
 	$(JSON_CFLAGS)
 
 libxllx_la_LIBADD =	\
 	$(GHTTP_LIBS)	\
 	$(ZLIB_LIBS) \
-	$(EV_LIBS) \
 	-lcurl \
 	$(JSON_LIBS)
 
