@@ -66,7 +66,9 @@ XLVod* xl_vod_new(XLClient *client)
 	XLVod *vod = s_malloc0(sizeof(*vod));
 	vod->client = client;
 	vod->videos = xl_videos_new();
+	xl_log(LOG_DEBUG, "debug\n");
 	vod_update_list(vod);
+	xl_log(LOG_DEBUG, "debug\n");
 	return vod;
 }
 
@@ -83,25 +85,28 @@ void xl_vod_free(XLVod *vod)
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err)
 {
 	char url[1024];
-	XLHttp *req;
+	XLHttp *http;
 	char *list;
 
 	snprintf(url, sizeof(url) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
-	req = xl_client_open_url(vod->client, url, HTTP_GET, NULL, DEFAULT_REFERER, err);
-	if (req == NULL){
-		goto failed;
+	http = xl_client_open_url(vod->client, url, HTTP_GET, NULL, DEFAULT_REFERER, err);
+	xl_log(LOG_DEBUG, "debug\n");
+	if (http == NULL){
+		return NULL;
 	}
-	if (xl_http_get_status(req) != 200)
+	xl_log(LOG_DEBUG, "debug\n");
+	if (xl_http_get_status(http) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	char *response = xl_http_get_body(req);
+	xl_log(LOG_DEBUG, "debug\n");
+	const char *response = xl_http_get_body(http);
 	list = s_strdup(response);
-	xl_http_free(req);
+	xl_http_free(http);
 	return list;
 failed:
-	xl_http_free(req);
+	xl_http_free(http);
 	return NULL;
 }
 
@@ -110,41 +115,50 @@ static void vod_update_list(XLVod *vod)
 	int try = 0;
 	XLErrorCode err;
 	char* list = vod_list_all_videos(vod, &err);
+	xl_log(LOG_DEBUG, "debug\n");
 	while (list == NULL && try < 3){
+	xl_log(LOG_DEBUG, "debug\n");
 		list = vod_list_all_videos(vod, &err);
+	xl_log(LOG_DEBUG, "debug\n");
 		try++;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	if (list == NULL)
 	{
 		xl_log(LOG_DEBUG, "http error, get video list error\n");
 		return;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 
 	if (json_parse_list_videos(list, vod->videos) == -1)
 	{
+	xl_log(LOG_DEBUG, "debug\n");
 		//xl_log(LOG_DEBUG, "no list video found\n");
 		s_free(list);
+	xl_log(LOG_DEBUG, "debug\n");
 		return;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	s_free(list);
 	return;
 }
 
 XLVideos* xl_vod_get_videos(XLVod *vod)
 {
+	/*
 	if (xl_videos_get_count(vod->videos) == 0)
 		vod_update_list(vod);
+		*/
+	xl_log(LOG_DEBUG, "debug\n");
 	return vod->videos;
 }
 
 int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 {
-	char *response;
 	char *sessionid;
 	char p_url[512];
 	XLHttp *req;
 	XLVideo* video;
-	XLCookies *cookies;
 	XLErrorCode err;
 
 	if (url_hash == NULL)
@@ -154,8 +168,9 @@ int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 	if (video == NULL)
 		return 0;
 	
-	cookies = xl_client_get_cookies(vod->client);
-	sessionid = xl_cookies_get_sessionid(cookies);
+	//cookies = xl_client_get_cookies(vod->client);
+	//sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		return -1;
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_del_list?flag=0&sessionid=%s&t=%ld&url_hash=%s", sessionid, get_current_timestamp(), url_hash);
@@ -168,7 +183,7 @@ int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	response = xl_http_get_body(req);
+	const char* response = xl_http_get_body(req);
 	if (json_parse_get_return_code(response) == 0)
 	{
 		s_free(sessionid);
@@ -208,6 +223,7 @@ int xl_vod_remove_all_video(XLVod *vod)
 // 0 for success.
 int xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err)
 {
+	xl_log(LOG_DEBUG, "debug, url=%s\n", url);
 	int ret = -1;
 	int prev_count = 0;
 	int current_count = 0;
@@ -228,25 +244,38 @@ int xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err)
 		return ret;
 	}
 
+	xl_log(LOG_DEBUG, "debug\n");
 	videos = xl_vod_get_videos(vod);
+	xl_log(LOG_DEBUG, "debug\n");
 	prev_count = xl_videos_get_count(videos);
+	xl_log(LOG_DEBUG, "debug, url=%s\n", url);
 
 	if (re_match("(^xlpan://|^thunder://|^ftp://|^http://|^https://|^ed2k://|^mms://|^magnet:|^rtsp://|^Flashget://|^flashget://|^qqdl://|^bt://|^xlpan%3A%2F%2F|^thunder%3A%2F%2F|^ftp%3A%2F%2F|^http%3A%2F%2F|^https%3A%2F%2F|^ed2k%3A%2F%2F|^mms%3A%2F%2F|^magnet%3A|^rtsp%3A%2F%2F|^Flashget%3A%2F%2F|^flashget%3A%2F%2F|^qqdl%3A%2F%2F|^bt%3A%2F%2F).*", url) == 0)
 	{
+	xl_log(LOG_DEBUG, "debug\n");
 		ret = vod_add_video(vod, url, err);
+	xl_log(LOG_DEBUG, "debug\n");
 		if (ret != 0)
 		{
+	xl_log(LOG_DEBUG, "debug\n");
 			*err = XL_ERROR_VIDEO_ADD_FAILED;
 			return -1;
 		}
+	xl_log(LOG_DEBUG, "debug\n");
 		vod_update_list(vod);
+	xl_log(LOG_DEBUG, "debug\n");
 		videos = xl_vod_get_videos(vod);
+	xl_log(LOG_DEBUG, "debug\n");
 		current_count = xl_videos_get_count(videos);
+	xl_log(LOG_DEBUG, "debug\n");
 		if (current_count > prev_count)
 		{
+	xl_log(LOG_DEBUG, "debug\n");
 			return 0;
 		}
+	xl_log(LOG_DEBUG, "debug\n");
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	return -1;
 }
 
@@ -257,9 +286,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	char *orig_url;
 	char get_url[1024];
 	char *userid, *sessionid;
-	char *body;
 	XLHttp *req;
-	XLCookies *cookies;
 	VideoStatus video_status;
 	char *play_url = NULL;
 	int try = 0;
@@ -283,11 +310,13 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		return play_url;
 	}
 
-	cookies = xl_client_get_cookies(vod->client);
-	userid = xl_cookies_get_userid(cookies);
+	//cookies = xl_client_get_cookies(vod->client);
+	//userid = xl_cookies_get_userid(cookies);
+	userid = xl_client_get_cookie(vod->client, "userid");
 	if (userid == NULL)
 		return NULL;
-	sessionid = xl_cookies_get_sessionid(cookies);
+	//sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		goto failed0;
 
@@ -319,7 +348,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body =  xl_http_get_body(req);
+	const char* body =  xl_http_get_body(req);
 	play_url = json_parse_get_download_url(body, type);
 failed:
 	xl_http_free(req);
@@ -337,7 +366,6 @@ static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char 
 {
 	char post_data[1024];
 	char post_url[1024];
-	char *body;
 	int ret = -1;
 	char *en_url;
 	XLHttp *req;
@@ -369,7 +397,7 @@ static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char 
 		goto failed;
 	}
 
-	body = xl_http_get_body(req);
+	const char* body = xl_http_get_body(req);
 	ret = json_parse_get_name_and_url(body, name, real_url);
 
 failed:
@@ -381,28 +409,32 @@ static int vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 {
 	char *title;
 	XLHttp *req;
-	char *response;
 	char *userid;
 	char *sessionid;
 	char post_data[4096];
 	char p_url[256];
 
-	XLCookies *cookies;
-
 	if (url == NULL)
 		return -1;
 	
-	cookies = xl_client_get_cookies(vod->client);
-	userid = xl_cookies_get_userid(cookies);
+	//cookies = xl_client_get_cookies(vod->client);
+	//userid = xl_cookies_get_userid(cookies);
+	xl_log(LOG_DEBUG, "debug\n");
+	userid = xl_client_get_cookie(vod->client, "userid");
 	if (userid == NULL)
 		return -1;
-	sessionid = xl_cookies_get_sessionid(cookies);
+	xl_log(LOG_DEBUG, "debug\n");
+	//sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
+	xl_log(LOG_DEBUG, "debug\n");
 	if (sessionid == NULL)
 		goto failed0;
+	xl_log(LOG_DEBUG, "debug\n");
 	vod_get_title_and_url(vod, url, &title, NULL);
 	if (title == NULL || strcmp(title, "") == 0 )
 		goto failed1;
 
+	xl_log(LOG_DEBUG, "debug\n");
 	memset(post_data, '\0', sizeof(post_data));
 	char *en_url = xl_url_quote(url);
 	char *en_title = xl_url_quote(title);
@@ -410,23 +442,29 @@ static int vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 	s_free(en_url);
 	s_free(en_title);
 
+	xl_log(LOG_DEBUG, "debug\n");
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_add_record?from=vlist&platform=0&userid=%s&sessionid=%s", userid, sessionid);
 
+	xl_log(LOG_DEBUG, "debug\n");
 	req = xl_client_open_url(vod->client, p_url, HTTP_POST, post_data, DEFAULT_REFERER, err);
 	if (req == NULL){
 		goto failed;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 	if (xl_http_get_status(req) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	response = xl_http_get_body(req);
+	xl_log(LOG_DEBUG, "debug\n");
+	const char* response = xl_http_get_body(req);
 	if (json_parse_get_return_code(response) == 0)
 	{
+	xl_log(LOG_DEBUG, "debug\n");
 		xl_http_free(req);
 		return 0;
 	}
+	xl_log(LOG_DEBUG, "debug\n");
 failed:
 	s_free(title);
 	xl_http_free(req);
@@ -446,10 +484,13 @@ char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorC
 	if (xl_vod_add_video(vod, url, err) != 0)
 		return NULL;
 
+	xl_log(LOG_DEBUG, "debug\n");
 	videos = xl_vod_get_videos(vod);
 	if (xl_videos_get_count(videos) != 1)
 		return NULL;
+	xl_log(LOG_DEBUG, "debug\n");
 	video = xl_videos_get_nth_video(videos, 0);
+	xl_log(LOG_DEBUG, "debug\n");
 	return xl_vod_get_video_play_url(vod, type, video, err);
 }
 
@@ -465,7 +506,6 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, XLVideo *video, XLErrorCode *err
 	 */
 	VideoStatus status = 2;
 	char *url_hash;
-	char *body;
 	char post_data[1024];
 	char post_url[1024];
 	XLHttp *http;
@@ -484,7 +524,7 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, XLVideo *video, XLErrorCode *err
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char *body = xl_http_get_body(http);
 	status = json_parse_get_video_status(body);
 failed:
 	s_free(url_hash);
@@ -504,7 +544,6 @@ static char* vod_upload_bt_file(XLVod *vod, const char *path)
 	char url[1024];
 	XLErrorCode err;
 	XLHttp *http;
-	char* body;
 	char* bthash;
 
 	if (!vod || !path)
@@ -527,7 +566,7 @@ static char* vod_upload_bt_file(XLVod *vod, const char *path)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char *body = xl_http_get_body(http);
 	bthash = json_parse_bt_hash(body);
 	if (bthash == NULL)
 		goto failed;
@@ -542,7 +581,6 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 {
 	int i;
 	char *index = NULL;
-	char *body;
 	char url[1024];
 	XLHttp *http;
 	XLErrorCode err;
@@ -557,7 +595,7 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char* body = xl_http_get_body(http);
 	i = json_parse_bt_index(body);
 	if (i == -1)
 		goto failed;

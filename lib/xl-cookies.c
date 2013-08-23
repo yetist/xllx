@@ -98,14 +98,14 @@ XLCookies* xl_cookies_new(void)
  * @param value 
  * @param update_cache Weather update string member
  */
-void xl_cookies_update(XLCookies *cookies, XLHttp *req, const char *key, int update_cache)
+void xl_cookies_update(XLCookies *cookies, XLHttpShare *hs, const char *key, int update_cache)
 {
-    if (!cookies || !req || !key) {
+    if (!cookies || !hs || !key) {
         xl_log(LOG_ERROR, "Null pointer access\n");
         return ;
     }
 
-    char *value = xl_http_get_cookie(req, key);
+    char *value = xl_http_share_get_cookie(hs, key);
     if (value == NULL)
         return ;
     
@@ -369,54 +369,54 @@ void xl_cookies_update_string_line(XLCookies *cookies)
 	free_and_strdup(cookies->string_line, buf);
 }
 
-void xl_cookies_receive(XLCookies *cookies, XLHttp *req, int update)
+void xl_cookies_receive(XLCookies *cookies, XLHttpShare *hs, int update)
 {
 	char buf[256];
 
-	xl_cookies_update(cookies, req, "check_result", update);
-	xl_cookies_update(cookies, req, "VERIFY_KEY", update);
-	xl_cookies_update(cookies, req, "active", update);
-	xl_cookies_update(cookies, req, "blogresult", update);
-	xl_cookies_update(cookies, req, "downbyte", update);
-	xl_cookies_update(cookies, req, "downfile", update);
-	xl_cookies_update(cookies, req, "isspwd", update);
-	xl_cookies_update(cookies, req, "isvip", update);
-	xl_cookies_update(cookies, req, "jumpkey", update);
-	xl_cookies_update(cookies, req, "logintype", update);
-	xl_cookies_update(cookies, req, "nickname", update);
-	xl_cookies_update(cookies, req, "onlinetime", update);
-	xl_cookies_update(cookies, req, "order", update);
-	xl_cookies_update(cookies, req, "safe", update);
-	xl_cookies_update(cookies, req, "score", update);
-	xl_cookies_update(cookies, req, "sessionid", update);
-	xl_cookies_update(cookies, req, "sex", update);
-	xl_cookies_update(cookies, req, "upgrade", update);
-	xl_cookies_update(cookies, req, "userid", update);
-	xl_cookies_update(cookies, req, "usernewno", update);
-	xl_cookies_update(cookies, req, "usernick", update);
-	xl_cookies_update(cookies, req, "usertype", update);
-	xl_cookies_update(cookies, req, "usrname", update);
+	xl_cookies_update(cookies, hs, "check_result", update);
+	xl_cookies_update(cookies, hs, "VERIFY_KEY", update);
+	xl_cookies_update(cookies, hs, "active", update);
+	xl_cookies_update(cookies, hs, "blogresult", update);
+	xl_cookies_update(cookies, hs, "downbyte", update);
+	xl_cookies_update(cookies, hs, "downfile", update);
+	xl_cookies_update(cookies, hs, "isspwd", update);
+	xl_cookies_update(cookies, hs, "isvip", update);
+	xl_cookies_update(cookies, hs, "jumpkey", update);
+	xl_cookies_update(cookies, hs, "logintype", update);
+	xl_cookies_update(cookies, hs, "nickname", update);
+	xl_cookies_update(cookies, hs, "onlinetime", update);
+	xl_cookies_update(cookies, hs, "order", update);
+	xl_cookies_update(cookies, hs, "safe", update);
+	xl_cookies_update(cookies, hs, "score", update);
+	xl_cookies_update(cookies, hs, "sessionid", update);
+	xl_cookies_update(cookies, hs, "sex", update);
+	xl_cookies_update(cookies, hs, "upgrade", update);
+	xl_cookies_update(cookies, hs, "userid", update);
+	xl_cookies_update(cookies, hs, "usernewno", update);
+	xl_cookies_update(cookies, hs, "usernick", update);
+	xl_cookies_update(cookies, hs, "usertype", update);
+	xl_cookies_update(cookies, hs, "usrname", update);
 
-	xl_cookies_update(cookies, req, "in_xl", update);
-	xl_cookies_update(cookies, req, "lx_sessionid", update);
-	xl_cookies_update(cookies, req, "dl_enable", update);
+	xl_cookies_update(cookies, hs, "in_xl", update);
+	xl_cookies_update(cookies, hs, "lx_sessionid", update);
+	xl_cookies_update(cookies, hs, "dl_enable", update);
 	if (cookies->userid) {
 		snprintf(buf, sizeof(buf), "isnewer_%s", cookies->userid);
-		xl_cookies_update(cookies, req, buf, update);
+		xl_cookies_update(cookies, hs, buf, update);
 	}
-	xl_cookies_update(cookies, req, "lx_login", update);
-	xl_cookies_update(cookies, req, "vip_expiredate", update);
-	xl_cookies_update(cookies, req, "user_type", update);
-	xl_cookies_update(cookies, req, "vip_level", update);
-	xl_cookies_update(cookies, req, "vip_paytype", update);
-	xl_cookies_update(cookies, req, "vip_isvip", update);
+	xl_cookies_update(cookies, hs, "lx_login", update);
+	xl_cookies_update(cookies, hs, "vip_expiredate", update);
+	xl_cookies_update(cookies, hs, "user_type", update);
+	xl_cookies_update(cookies, hs, "vip_level", update);
+	xl_cookies_update(cookies, hs, "vip_paytype", update);
+	xl_cookies_update(cookies, hs, "vip_isvip", update);
 	if (cookies->userid) {
 		snprintf(buf, sizeof(buf), "initbg_pop%s", cookies->userid);
-		xl_cookies_update(cookies, req, buf, update);
+		xl_cookies_update(cookies, hs, buf, update);
 	}
-	xl_cookies_update(cookies, req, "last_userid", update);
-	xl_cookies_update(cookies, req, "vip_is_good_number", update);
-	xl_cookies_update(cookies, req, "loadding_img", update);
+	xl_cookies_update(cookies, hs, "last_userid", update);
+	xl_cookies_update(cookies, hs, "vip_is_good_number", update);
+	xl_cookies_update(cookies, hs, "loadding_img", update);
 }
 
 void xl_cookies_free(XLCookies *cookies)

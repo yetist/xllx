@@ -37,9 +37,9 @@ void  xl_cookies_clear_##a(XLCookies *cookies)
 typedef struct _XLCookies XLCookies;
 
 XLCookies* xl_cookies_new(void);
-void xl_cookies_update(XLCookies *cookies, XLHttp *req, const char *key, int update_cache);
+void xl_cookies_update(XLCookies *cookies, XLHttpShare *hs, const char *key, int update_cache);
 void xl_cookies_update_string_line(XLCookies *cookies);
-void xl_cookies_receive(XLCookies *cookies, XLHttp *req, int update);
+void xl_cookies_receive(XLCookies *cookies, XLHttpShare *hs, int update);
 void xl_cookies_free(XLCookies *cookies);
 
 _get_cookie_func(string_line);

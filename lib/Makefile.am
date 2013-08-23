@@ -12,7 +12,6 @@ DIST_SUBDIRS = libghttp
 
 XLLX_C_FILES = 		\
 	xl-client.c 	\
-	xl-cookies.c 	\
 	xl-http.c 	\
 	xl-json.c	\
 	xl-url.c 	\
@@ -27,7 +26,6 @@ XLLX_C_FILES = 		\
 INST_H_FILES = 		\
 	xllx.h		\
 	xl-client.h	\
-	xl-cookies.h	\
 	xl-errors.h	\
 	xl-videos.h	\
 	xl-http.h	\

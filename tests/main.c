@@ -65,6 +65,8 @@ void play_url_files(XLVod *vod, const char *path)
 		char *url;
 		len = strlen(buf);
 		buf[len-1] = '\0';
+		if (buf[0] == '#') continue;
+		if (strlen(buf) < 12 ) continue;
 		url = xl_vod_get_video_url(vod, buf, VIDEO_1080P, &err);
 		if (url == NULL)
 		{
