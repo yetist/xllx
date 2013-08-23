@@ -46,7 +46,6 @@ struct _XLClient
 static void  get_verify_code(XLClient *client, XLErrorCode *err);
 static void  get_verify_image(XLClient *client);
 static char* encode_password(const char* password, const char* vcode);
-static int     client_has_logged_in(XLClient *client); 
 //static void    client_show_cookie_names(XLClient *client);
 static XLHttp* client_open_url(XLClient *client, const char *url, HttpMethod method, const char* post_data, const char* refer, XLErrorCode *err);
 static XLHttp *client_create_http(XLClient *client, const char *url, XLErrorCode *err);
@@ -166,11 +165,18 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
 		}
 	}
 
-	if (xl_client_check_verify_code(client, err) != 0 && *client->vcode != '!')
+	if (xl_client_check_verify_code(client, err) != 0)
 	{
-		s_free(client->vcode);
-		client->vcode = NULL;
-		get_verify_image(client);
+		if (*client->vcode != '!')
+		{
+			s_free(client->vcode);
+			client->vcode = NULL;
+			get_verify_image(client);
+		}else{
+			s_free(client->vcode);
+			client->vcode = NULL;
+			get_verify_code(client, err);
+		}
 		return -1;
 	}
 
@@ -183,27 +189,11 @@ int xl_client_login(XLClient *client, XLErrorCode *err)
  */
 void xl_client_logout(XLClient *client)
 {
-	/*
-		// from .vip.xunlei.com
-		xl_cookies_clear_vip_isvip(client->cookies);
-		xl_cookies_clear_lx_sessionid(client->cookies);
-		xl_cookies_clear_vip_level(client->cookies);
-		xl_cookies_clear_lx_login(client->cookies);
-		xl_cookies_clear_dl_enable(client->cookies);
-		xl_cookies_clear_in_xl(client->cookies);
-		//xl_cookies_clear_ucid(client->cookies);
-		//xl_cookies_clear_lixian_section(client->cookies);
-
-		// from .xunlei.com
-		xl_cookies_clear_sessionid(client->cookies);
-		//xl_cookies_clear_username(client->cookies);
-		xl_cookies_clear_nickname(client->cookies);
-		xl_cookies_clear_usernewno(client->cookies);
-		xl_cookies_clear_userid(client->cookies);
-
-		// from .vip.xunlei.com
-		xl_cookies_clear_gdriveid(client->cookies);
-		*/
+	if (client->hs)
+	{
+		xl_http_share_free(client->hs);
+		client->hs = xl_http_share_new();
+	}
 }
 
 /**
@@ -214,7 +204,7 @@ void xl_client_logout(XLClient *client)
  *
  * Return value: if has logged in, return 0; else return -1;
  **/
-static int client_has_logged_in(XLClient *client)
+int xl_client_has_logged_in(XLClient *client)
 {
 	int ret = -1;
 	char *userid;
@@ -442,6 +432,7 @@ void xl_client_free(XLClient *client)
 	s_free(client->vcode);
 	s_free(client->vimgpath);
 	xl_http_share_free(client->hs);
+	xl_http_cleanup();
 	s_free(client);
 }
 

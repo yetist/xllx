@@ -59,6 +59,7 @@ struct _XLHttp
 	HttpBits bits;
 	struct MemoryStruct trunk;
 	int retry;
+    int flags;              /**store http option settings**/
 
 	struct curl_slist* header;
     struct curl_slist* recv_head;
@@ -90,19 +91,37 @@ static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data
 
 /* create and setup options */
 
+void  xl_http_init(void)
+{
+	if (initial_curl == 0)
+	{
+		curl_global_init(CURL_GLOBAL_DEFAULT);
+		initial_curl = 1;
+	}
+}
+
+void xl_http_cleanup(void)
+{
+	if (initial_curl == 1)
+	{
+        curl_global_cleanup();
+		initial_curl = 0;
+	}
+}
+
 XLHttp *xl_http_new(const char *uri)
 {
 	XLHttp *http;
-	CURLcode res;
 
 	if (!uri) {
 		return NULL;
 	}
 
-	if (initial_curl == 0)
-		curl_global_init(CURL_GLOBAL_DEFAULT);
+	xl_http_init();
 
 	http = s_malloc0(sizeof(*http));
+	if (http == NULL)
+		return NULL;
 
 	http->curl = curl_easy_init();
 	if (!http->curl) {
@@ -127,7 +146,6 @@ XLHttp *xl_http_new(const char *uri)
     //set normal operate timeout to 30.official value.
     //curl_easy_setopt(http->curl,CURLOPT_TIMEOUT,30);
     //low speed: 5B/s
-	//curl_easy_setopt(http->curl, CURLOPT_VERBOSE, 1);
     curl_easy_setopt(http->curl, CURLOPT_LOW_SPEED_LIMIT, 8*5);
     curl_easy_setopt(http->curl, CURLOPT_LOW_SPEED_TIME, 30);
     curl_easy_setopt(http->curl, CURLOPT_SSL_VERIFYPEER, 0);
@@ -154,7 +172,6 @@ XLHttp *xl_http_create_default(const char *url, XLErrorCode *err)
 
 	http = xl_http_new(url);
 	if (!http) {
-		//xl_log(LOG_ERROR, "Create request object for url: %s failed\n", url);
 		if (err)
 			*err = XL_ERROR_ERROR;
 		return NULL;
@@ -241,6 +258,44 @@ void xl_http_add_form(XLHttp* request, FormType type, const char* name, const ch
     curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
 }
 
+void  xl_http_set_option(XLHttp *http, HttpOption opt, ...)
+{
+    if (!http)
+		return;
+    va_list args;
+    va_start(args, opt);
+    long val=0;
+    switch(opt){
+        case HTTP_TIMEOUT:
+            curl_easy_setopt(http->curl, CURLOPT_LOW_SPEED_TIME, va_arg(args, unsigned long));
+            break;
+        case HTTP_ALL_TIMEOUT:
+            curl_easy_setopt(http->curl, CURLOPT_TIMEOUT, va_arg(args, unsigned long));
+            break;
+        case HTTP_NOT_FOLLOW:
+            curl_easy_setopt(http->curl, CURLOPT_FOLLOWLOCATION, !va_arg(args, long));
+            break;
+        case HTTP_SAVE_FILE:
+            curl_easy_setopt(http->curl, CURLOPT_WRITEFUNCTION, NULL);
+            curl_easy_setopt(http->curl, CURLOPT_WRITEDATA, va_arg(args, FILE*));
+            break;
+        case HTTP_RESET_URL:
+            curl_easy_setopt(http->curl, CURLOPT_URL, va_arg(args, const char*));
+            break;
+        case HTTP_VERBOSE:
+            curl_easy_setopt(http->curl, CURLOPT_VERBOSE, va_arg(args, long));
+            break;
+        case HTTP_MAXREDIRS:
+            curl_easy_setopt(http->curl, CURLOPT_MAXREDIRS, va_arg(args, long));
+            break;
+        default:
+            val = va_arg(args, long);
+            val ? (http->flags &= opt) : (http->flags |= ~opt);
+            break;
+    }
+    va_end(args);
+}
+
 /* connect to server, and request */
 
 int xl_http_open(XLHttp *request, HttpMethod method, char *body)
@@ -260,63 +315,6 @@ int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 	xl_http_add_form(request, FORM_FILE, field, path);
 	return http_open(request, HTTP_GET, NULL, 0);
 }
-
-#if 0
-int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
-{
-	int len;
-	char msg[6300000];
-	size_t have_write_bytes;
-	char buf[1024];
-    char *boundary_;
-	char *boundary;
-	ssize_t count;
-	int fd;
-
-	len = get_file_size(path, &have_write_bytes);
-	if (len != 0 || have_write_bytes > UPLOAD_FILE_MAX_SIZE)
-	{
-		return -1;
-	}
-	have_write_bytes = len = 0;
-
-	//set header
-    boundary_ = "----WebKitFormBoundaryk5nH7APtIbShxvqE";
-	snprintf(buf, sizeof(buf), "multipart/form-data;boundary=%s", boundary_);
-	xl_http_set_header(request, "Content-Type", buf);
-
-	//char *filename = get_basename(path);
-
-	s_asprintf(&boundary, "--%s", boundary_);
-	len = snprintf(buf, sizeof(buf), "%s\r\n"
-	"Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
-	"Content-Type: application/octet-stream\r\n\r\n", boundary, field, path);
-
-	memcpy(msg + have_write_bytes, buf, len);
-	have_write_bytes += len;
-
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		goto failed;
-	while ((count = read(fd, buf, sizeof(buf))) != 0)
-	{
-		memcpy(msg + have_write_bytes, buf, count);
-		have_write_bytes += count;
-	}
-	close(fd);
-
-	len = snprintf(buf, sizeof(buf), "\r\n%s--\r\n", boundary);
-	memcpy(msg + have_write_bytes, buf, len);
-	have_write_bytes += len;
-
-	s_free(boundary);
-	return http_open(request, HTTP_POST, msg, have_write_bytes);
-failed:
-	s_free(boundary);
-	return -1;
-}
-#endif
-
 
 /* server response, get data */
 

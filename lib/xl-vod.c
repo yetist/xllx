@@ -150,8 +150,6 @@ int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 	if (video == NULL)
 		return 0;
 	
-	//cookies = xl_client_get_cookies(vod->client);
-	//sessionid = xl_cookies_get_sessionid(cookies);
 	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		return -1;
