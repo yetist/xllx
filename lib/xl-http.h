@@ -31,24 +31,29 @@ typedef enum
 	HTTP_POST = 3,
 } HttpMethod;
 
+typedef enum {
+    FORM_FILE,	// use add_file_content instead
+    FORM_CONTENT
+} FormType;
+
 typedef struct _XLHttp XLHttp;
 
 typedef struct _XLHttpShare XLHttpShare;
 
-XLHttp *xl_http_new(const char *url);
-XLHttp *xl_http_create_default(const char *url, XLErrorCode *err);
-void    xl_http_set_http_share(XLHttp *http, XLHttpShare *share);
+XLHttp*     xl_http_new(const char *url);
+XLHttp*     xl_http_create_default(const char *url, XLErrorCode *err);
+void        xl_http_set_http_share(XLHttp *http, XLHttpShare *share);
+void        xl_http_set_header(XLHttp *request, const char *name, const char *value);
+void        xl_http_set_cookie(XLHttp *request, const char *name, const char* val);
+void        xl_http_add_form(XLHttp* request, FormType type, const char* name, const char* value);
 
-int xl_http_open(XLHttp *request, HttpMethod method, char *body);
-int xl_http_upload_file(XLHttp *request, const char *field, const char *path);
+int         xl_http_open(XLHttp *request, HttpMethod method, char *body);
+int         xl_http_upload_file(XLHttp *request, const char *field, const char *path);
 
-void xl_http_set_header(XLHttp *request, const char *name, const char *value);
-void xl_http_set_cookie(XLHttp *request, const char *name, const char* val);
-
-char* xl_http_get_header(XLHttp *request, const char *name);
-int   xl_http_get_status(XLHttp *request);
+char*       xl_http_get_header(XLHttp *request, const char *name);
+int         xl_http_get_status(XLHttp *request);
 const char* xl_http_get_body(XLHttp *request);
-int   xl_http_get_body_len(XLHttp *request);
+int         xl_http_get_body_len(XLHttp *request);
 
 void xl_http_free(XLHttp *request);
 

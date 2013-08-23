@@ -27,8 +27,6 @@
 #include <string.h>
 #include <zlib.h>
 #include <curl/curl.h>
-//#include <ev.h>
-//#include <ghttp.h>
 #include "smemory.h"
 #include "xllx.h"
 #include "xl-http.h"
@@ -39,7 +37,6 @@
 
 
 #define CHUNK 1024 * 1024
-#define UPLOAD_FILE_MAX_SIZE 6291456
 
 typedef enum{
     HTTP_UNEXPECTED_RECV = 1<<1,
@@ -76,23 +73,22 @@ struct _XLHttpShare
 	pthread_mutex_t share_lock[4];
 };
 
-typedef enum {
-    XL_FORM_FILE,// use add_file_content instead
-    XL_FORM_CONTENT
-} XL_FORM;
-
 static int initial_curl = 0;
 
-static char *ungzip(const char *source, int len, int *total);
-static void  xl_http_set_default_header(XLHttp *request);
+static void http_clean(XLHttp* req);
+static void xl_http_set_default_header(XLHttp *request);
 static int http_open(XLHttp *request, HttpMethod method, char *body, size_t body_len);
 static size_t write_header(void *ptr, size_t size, size_t nmemb, void *user_data);
 static size_t write_content(const char* ptr, size_t size, size_t nmemb, void* user_data);
+static void composite_trunks(XLHttp* req);
+static void uncompress_response(XLHttp* http);
+static char *ungzip(const char *source, int len, int *total);
+static int curl_debug_redirect(CURL* h,curl_infotype t,char* msg,size_t len,void* data);
+
 static void http_share_lock(CURL* handle, curl_lock_data data, curl_lock_access access, void* user_data);
 static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data);
-static int curl_debug_redirect(CURL* h,curl_infotype t,char* msg,size_t len,void* data);
-static void uncompress_response(XLHttp* http);
-static void composite_trunks(XLHttp* req);
+
+/* create and setup options */
 
 XLHttp *xl_http_new(const char *uri)
 {
@@ -177,6 +173,76 @@ void    xl_http_set_http_share(XLHttp *http, XLHttpShare *hs)
 	}
 }
 
+void xl_http_set_header(XLHttp *request, const char *name, const char *value)
+{
+	if (!request->curl || !name || !value)
+		return ;
+
+    //use libcurl internal cookie engine
+    if(strcmp(name,"Cookie")==0) return;
+
+    size_t name_len = strlen(name);
+    size_t value_len = strlen(value);
+    char* opt = s_malloc(name_len+value_len+3);
+
+    strcpy(opt,name);
+    opt[name_len] = ':';
+    //need a blank space
+    opt[name_len+1] = ' ';
+    strcpy(opt+name_len+2, value);
+
+    int use_old = 0;
+    struct curl_slist* list = request->header;
+    while(list){
+        if(strncmp(list->data,name,strlen(name)) == 0){
+            s_free(list->data);
+            list->data = s_strdup(opt);
+            use_old = 1;
+            break;
+        }
+        list = list->next;
+    }
+    if(!use_old){
+        request->header = curl_slist_append((struct curl_slist*)request->header,opt);
+    }
+
+    curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->header);
+    s_free(opt);
+}
+
+void xl_http_set_cookie(XLHttp *request, const char *name, const char* value)
+{
+	char buf[1024];
+	if (!name) {
+		xl_log(LOG_ERROR, "Invalid parameter\n");
+		return ; 
+	}
+
+	if(!value)
+		value = "";
+
+	snprintf(buf, sizeof(buf), "%s=%s", name, value);
+
+	curl_easy_setopt(request->curl, CURLOPT_COOKIE, buf);
+}
+
+void xl_http_add_form(XLHttp* request, FormType type, const char* name, const char* value)
+{
+    struct curl_httppost** post = (struct curl_httppost**)&request->form_start;
+    struct curl_httppost** last = (struct curl_httppost**)&request->form_end;
+    switch(type){
+        case FORM_FILE:
+            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_FILE, value, CURLFORM_END);
+            break;
+        case FORM_CONTENT:
+            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_COPYCONTENTS, value, CURLFORM_END);
+            break;
+    }
+    curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
+}
+
+/* connect to server, and request */
+
 int xl_http_open(XLHttp *request, HttpMethod method, char *body)
 {
 	if (body != NULL)
@@ -189,6 +255,13 @@ int xl_http_open(XLHttp *request, HttpMethod method, char *body)
 	}
 }
 
+int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
+{
+	xl_http_add_form(request, FORM_FILE, field, path);
+	return http_open(request, HTTP_GET, NULL, 0);
+}
+
+#if 0
 int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 {
 	int len;
@@ -241,6 +314,66 @@ int xl_http_upload_file(XLHttp *request, const char *field, const char *path)
 failed:
 	s_free(boundary);
 	return -1;
+}
+#endif
+
+
+/* server response, get data */
+
+char *xl_http_get_header(XLHttp *request, const char *name)
+{
+	if (!name) {
+		xl_log(LOG_ERROR, "Invalid parameter\n");
+		return NULL; 
+	}
+
+	char *h = NULL;
+	struct curl_slist* list = request->recv_head;
+	while(list!=NULL){
+		if(strncmp(name, list->data, strlen(name))==0){
+			h = s_strdup(list->data+strlen(name)+2);
+			break;
+		}
+		list = list->next;
+	}
+
+	return h;
+}
+
+int xl_http_get_status(XLHttp *request)
+{
+	return request->http_code;
+}
+
+const char* xl_http_get_body(XLHttp *request)
+{
+    return request->response;
+}
+
+int xl_http_get_body_len(XLHttp *request)
+{
+	return request->resp_len;
+}
+
+void xl_http_free(XLHttp *request)
+{
+	if (!request)
+		return;
+
+	if (request)
+	{
+		composite_trunks(request);
+		s_free(request->response);
+		s_free(request->location);
+        curl_slist_free_all(request->header);
+        curl_slist_free_all(request->recv_head);
+        curl_formfree(request->form_start);
+        if(request->curl)
+		{
+            curl_easy_cleanup(request->curl);
+        }
+		s_free(request);
+	}
 }
 
 static void http_clean(XLHttp* req)
@@ -339,43 +472,6 @@ failed:
     return 0;
 }
 
-void xl_http_set_header(XLHttp *request, const char *name, const char *value)
-{
-	if (!request->curl || !name || !value)
-		return ;
-
-    //use libcurl internal cookie engine
-    if(strcmp(name,"Cookie")==0) return;
-
-    size_t name_len = strlen(name);
-    size_t value_len = strlen(value);
-    char* opt = s_malloc(name_len+value_len+3);
-
-    strcpy(opt,name);
-    opt[name_len] = ':';
-    //need a blank space
-    opt[name_len+1] = ' ';
-    strcpy(opt+name_len+2, value);
-
-    int use_old = 0;
-    struct curl_slist* list = request->header;
-    while(list){
-        if(strncmp(list->data,name,strlen(name)) == 0){
-            s_free(list->data);
-            list->data = s_strdup(opt);
-            use_old = 1;
-            break;
-        }
-        list = list->next;
-    }
-    if(!use_old){
-        request->header = curl_slist_append((struct curl_slist*)request->header,opt);
-    }
-
-    curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->header);
-    s_free(opt);
-}
-
 static void xl_http_set_default_header(XLHttp *request)
 {
 	xl_http_set_header(request, "User-Agent", XL_HTTP_USER_AGENT);
@@ -384,79 +480,6 @@ static void xl_http_set_default_header(XLHttp *request)
 	xl_http_set_header(request, "Accept-Charset", "GBK, utf-8, utf-16, *;q=0.1");
 	xl_http_set_header(request, "Accept-Encoding", "gzip, deflate");
 	xl_http_set_header(request, "Connection", "Keep-Alive");
-}
-
-char *xl_http_get_header(XLHttp *request, const char *name)
-{
-	if (!name) {
-		xl_log(LOG_ERROR, "Invalid parameter\n");
-		return NULL; 
-	}
-
-	char *h = NULL;
-	struct curl_slist* list = request->recv_head;
-	while(list!=NULL){
-		if(strncmp(name, list->data, strlen(name))==0){
-			h = s_strdup(list->data+strlen(name)+2);
-			break;
-		}
-		list = list->next;
-	}
-
-	return h;
-}
-
-void xl_http_set_cookie(XLHttp *request, const char *name, const char* value)
-{
-	char buf[1024];
-	if (!name) {
-		xl_log(LOG_ERROR, "Invalid parameter\n");
-		return ; 
-	}
-
-	if(!value)
-		value = "";
-
-	snprintf(buf, sizeof(buf), "%s=%s", name, value);
-
-	curl_easy_setopt(request->curl, CURLOPT_COOKIE, buf);
-}
-
-int xl_http_get_status(XLHttp *request)
-{
-	return request->http_code;
-}
-
-const char* xl_http_get_body(XLHttp *request)
-{
-    return request->response;
-}
-
-int xl_http_get_body_len(XLHttp *request)
-{
-	return request->resp_len;
-}
-
-void xl_http_free(XLHttp *request)
-{
-	if (!request)
-		return;
-
-	if (request)
-	{
-		if (request->response)
-			s_free(request->response);
-		if(request->location)
-			s_free(request->location);
-        curl_slist_free_all(request->header);
-        curl_slist_free_all(request->recv_head);
-        curl_formfree(request->form_start);
-        if(request->curl)
-		{
-            curl_easy_cleanup(request->curl);
-        }
-		s_free(request);
-	}
 }
 
 static void uncompress_response(XLHttp* http)
@@ -584,17 +607,6 @@ static size_t write_header(void *ptr, size_t size, size_t nmemb, void *user_data
         return size*nmemb;
     }
     request->recv_head = curl_slist_append(request->recv_head, (char*)ptr);
-    //read cookie from header;
-    /*if(strncmp(str,"Set-Cookie",strlen("Set-Cookie"))==0){
-        struct cookie_list * node = s_malloc0(sizeof(*node));
-        sscanf(str,"Set-Cookie: %[^=]=%[^;];",node->name,node->value);
-        request->cookie = slist_append(request->cookie,node);
-        LwqqClient* lc = request->lc;
-        if(lc&&!(req_->flags&LWQQ_HTTP_NOT_SET_COOKIE)){
-            if(!lc->cookies) lc->cookies = s_malloc0(sizeof(LwqqCookies));
-            lwqq_set_cookie(lc->cookies, node->name, node->value);
-        }
-    }*/
     return size*nmemb;
 }
 
@@ -640,21 +652,7 @@ static int curl_debug_redirect(CURL* h, curl_infotype t, char* msg, size_t len, 
     return 0;
 }
 
-static void xl_http_add_form(XLHttp* request, XL_FORM form, const char* name, const char* value)
-{
-    struct curl_httppost** post = (struct curl_httppost**)&request->form_start;
-    struct curl_httppost** last = (struct curl_httppost**)&request->form_end;
-    switch(form){
-        case XL_FORM_FILE:
-            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_FILE, value, CURLFORM_END);
-            break;
-        case XL_FORM_CONTENT:
-            curl_formadd(post, last, CURLFORM_COPYNAME, name, CURLFORM_COPYCONTENTS, value, CURLFORM_END);
-            break;
-    }
-    curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
-}
-
+#if 0
 static void xl_http_add_file_content(XLHttp* request, const char* name,
         const char* filename, const void* data, size_t size, const char* extension)
 {
@@ -695,6 +693,7 @@ static void xl_http_add_file_content(XLHttp* request, const char* name,
     }
     curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
 }
+#endif
 
 /* XLHttpShare Object */
 
@@ -899,4 +898,3 @@ static void http_share_unlock(CURL* handle, curl_lock_data data, void* user_data
 	}
 	pthread_mutex_unlock(&hs->share_lock[idx]);
 }
-

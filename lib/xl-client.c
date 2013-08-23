@@ -34,8 +34,6 @@
 #include "logger.h"
 #include "md5.h"
 
-#define DEFAULT_PAGENUM "100"
-
 struct _XLClient
 {
     char *username;             /**< Username */
@@ -126,7 +124,6 @@ int do_login(XLClient *client, XLErrorCode *err)
 	xl_http_set_cookie(http, "pagenum", "1");
 	if (xl_http_open(http, HTTP_GET, NULL) != 0)
 		goto failed;
-	//xl_http_set_cookie(http, "pagenum", DEFAULT_PAGENUM);
 
 	if (xl_http_get_status(http) != 200)
 	{
