@@ -222,6 +222,29 @@ char* xl_url_decode(const char* euri)
     return url;
 }
 
+char* vod_url_encode(const char* uri)
+{
+	char u[512] = {0};
+	char *b64, *url = NULL;
+	size_t len;
+
+    //set up data
+    snprintf(u, sizeof(u), "[XLLX]%s[XLLX]", uri);
+
+    len = base64_encode(u, strlen(u), &b64);
+	if (len < 0)
+		return NULL;
+
+	return b64;
+	/*
+    url = malloc(strlen(b64) + 11);
+    sprintf(url, "Flashget://%s", b64);
+
+    free(b64);
+    return url;
+	*/
+}
+
 #if 0
 int main(int argc, char *argv[])
 {

@@ -32,5 +32,6 @@ char* xl_url_qqdl_decode(const char* euri);
 char* xl_url_flashget_encode(const char* uri);
 char* xl_url_flashget_decode(const char* euri);
 char* xl_url_decode(const char* euri);
+char* vod_url_encode(const char* uri);
 
 #endif /* __XL_URL_H__ */
