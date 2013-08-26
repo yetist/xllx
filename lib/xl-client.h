@@ -24,7 +24,6 @@
 #define __CLIENT_H__  1
 
 #include "xl-http.h"
-//#include "xl-cookies.h"
 
 typedef struct _XLClient XLClient;
 
