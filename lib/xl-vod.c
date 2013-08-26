@@ -30,7 +30,6 @@
 #include <json.h>
 
 #include "xl-vod.h"
-#include "xl-cookies.h"
 #include "xl-http.h"
 #include "xl-url.h"
 #include "xl-utils.h"
@@ -43,6 +42,7 @@
 
 #define DEFAULT_REFERER "http://i.vod.xunlei.com/proxy.html?v2.82"
 #define MAX_BUFF_LEN 6291456 
+#define UPLOAD_FILE_MAX_SIZE 6291456
 
 struct _XLVod
 {
@@ -83,37 +83,32 @@ void xl_vod_free(XLVod *vod)
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err)
 {
 	char url[1024];
-	XLHttp *req;
+	XLHttp *http;
 	char *list;
 
 	snprintf(url, sizeof(url) ,"http://i.vod.xunlei.com/req_history_play_list/req_num/30/req_offset/0?type=all&order=create&t=%ld", get_current_timestamp());
-	req = xl_client_open_url(vod->client, url, HTTP_GET, NULL, DEFAULT_REFERER, err);
-	if (req == NULL){
-		goto failed;
+	http = xl_client_open_url(vod->client, url, HTTP_GET, NULL, DEFAULT_REFERER, err);
+	if (http == NULL){
+		return NULL;
 	}
-	if (xl_http_get_status(req) != 200)
+	if (xl_http_get_status(http) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	char *response = xl_http_get_body(req);
+	const char *response = xl_http_get_body(http);
 	list = s_strdup(response);
-	xl_http_free(req);
+	xl_http_free(http);
 	return list;
 failed:
-	xl_http_free(req);
+	xl_http_free(http);
 	return NULL;
 }
 
 static void vod_update_list(XLVod *vod)
 {
-	int try = 0;
 	XLErrorCode err;
 	char* list = vod_list_all_videos(vod, &err);
-	while (list == NULL && try < 3){
-		list = vod_list_all_videos(vod, &err);
-		try++;
-	}
 	if (list == NULL)
 	{
 		xl_log(LOG_DEBUG, "http error, get video list error\n");
@@ -132,19 +127,19 @@ static void vod_update_list(XLVod *vod)
 
 XLVideos* xl_vod_get_videos(XLVod *vod)
 {
+	/*
 	if (xl_videos_get_count(vod->videos) == 0)
 		vod_update_list(vod);
+		*/
 	return vod->videos;
 }
 
 int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 {
-	char *response;
 	char *sessionid;
 	char p_url[512];
 	XLHttp *req;
 	XLVideo* video;
-	XLCookies *cookies;
 	XLErrorCode err;
 
 	if (url_hash == NULL)
@@ -154,8 +149,7 @@ int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 	if (video == NULL)
 		return 0;
 	
-	cookies = xl_client_get_cookies(vod->client);
-	sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		return -1;
 	snprintf(p_url, sizeof(p_url), "http://i.vod.xunlei.com/req_del_list?flag=0&sessionid=%s&t=%ld&url_hash=%s", sessionid, get_current_timestamp(), url_hash);
@@ -168,7 +162,7 @@ int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	response = xl_http_get_body(req);
+	const char* response = xl_http_get_body(req);
 	if (json_parse_get_return_code(response) == 0)
 	{
 		s_free(sessionid);
@@ -214,9 +208,18 @@ int xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err)
 	XLVideos* videos;
 
 	// BT 文件单独处理。先上传到视频服务器，得到url_hash之后再添加至当前用户列表中。
-	if (re_match("(^file:///|^/).*torrent", url) == 0)
+	if ((re_match(".*torrent", url) == 0) && check_file_existed(url))
 	{
+		int len;
+		size_t fsize;
 		char *url_hash = NULL;
+
+		len = get_file_size(url, &fsize);
+		if (len != 0 || fsize > UPLOAD_FILE_MAX_SIZE)
+		{
+			return ret;
+		}
+
 		url_hash = vod_upload_bt_file(vod, url);
 		if (url_hash == NULL)
 		{
@@ -257,9 +260,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	char *orig_url;
 	char get_url[1024];
 	char *userid, *sessionid;
-	char *body;
 	XLHttp *req;
-	XLCookies *cookies;
 	VideoStatus video_status;
 	char *play_url = NULL;
 	int try = 0;
@@ -283,11 +284,10 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		return play_url;
 	}
 
-	cookies = xl_client_get_cookies(vod->client);
-	userid = xl_cookies_get_userid(cookies);
+	userid = xl_client_get_cookie(vod->client, "userid");
 	if (userid == NULL)
 		return NULL;
-	sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		goto failed0;
 
@@ -313,13 +313,13 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	if (req == NULL){
 		goto failed;
 	}
-	//"http://i.vod.xunlei.com/req_get_method_vod?url=bt%3A//B22859889120FE5DD9DCEDEDE3A490B1FE992BAC%2F0&video_name=%E8%BE%B9%E5%A2%83%E9%A3%8E%E4%BA%91.720p.HD%E5%9B%BD%E8%AF%AD%E4%B8%AD%E5%AD%97&from=vlist&platform=0&vip=1&userid=288543553&sessionid=F827301D73D5DA49AC524CE2B36574FE415541AEEBCFF1F76995EED7C745BAE2FCB8C3B708C1ABE657572D8AF94F47C9B99DBACFB38C42A659E75E860AF88D40&cache=1376895968910"
+
 	if (xl_http_get_status(req) != 200)
 	{
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body =  xl_http_get_body(req);
+	const char* body =  xl_http_get_body(req);
 	play_url = json_parse_get_download_url(body, type);
 failed:
 	xl_http_free(req);
@@ -337,7 +337,6 @@ static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char 
 {
 	char post_data[1024];
 	char post_url[1024];
-	char *body;
 	int ret = -1;
 	char *en_url;
 	XLHttp *req;
@@ -369,7 +368,7 @@ static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char 
 		goto failed;
 	}
 
-	body = xl_http_get_body(req);
+	const char* body = xl_http_get_body(req);
 	ret = json_parse_get_name_and_url(body, name, real_url);
 
 failed:
@@ -381,22 +380,18 @@ static int vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 {
 	char *title;
 	XLHttp *req;
-	char *response;
 	char *userid;
 	char *sessionid;
 	char post_data[4096];
 	char p_url[256];
 
-	XLCookies *cookies;
-
 	if (url == NULL)
 		return -1;
 	
-	cookies = xl_client_get_cookies(vod->client);
-	userid = xl_cookies_get_userid(cookies);
+	userid = xl_client_get_cookie(vod->client, "userid");
 	if (userid == NULL)
 		return -1;
-	sessionid = xl_cookies_get_sessionid(cookies);
+	sessionid = xl_client_get_cookie(vod->client, "sessionid");
 	if (sessionid == NULL)
 		goto failed0;
 	vod_get_title_and_url(vod, url, &title, NULL);
@@ -421,7 +416,7 @@ static int vod_add_video(XLVod *vod, const char* url, XLErrorCode *err)
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	response = xl_http_get_body(req);
+	const char* response = xl_http_get_body(req);
 	if (json_parse_get_return_code(response) == 0)
 	{
 		xl_http_free(req);
@@ -465,7 +460,6 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, XLVideo *video, XLErrorCode *err
 	 */
 	VideoStatus status = 2;
 	char *url_hash;
-	char *body;
 	char post_data[1024];
 	char post_url[1024];
 	XLHttp *http;
@@ -484,18 +478,12 @@ VideoStatus xl_vod_get_video_status(XLVod *vod, XLVideo *video, XLErrorCode *err
 		*err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char *body = xl_http_get_body(http);
 	status = json_parse_get_video_status(body);
 failed:
 	s_free(url_hash);
 	xl_http_free(http);
 	return status;
-}
-
-static int check_file_existed(const char *filename)
-{
-	struct stat st;
-	return (stat(filename, &st )==0 && S_ISREG(st.st_mode));
 }
 
 static char* vod_upload_bt_file(XLVod *vod, const char *path)
@@ -504,7 +492,6 @@ static char* vod_upload_bt_file(XLVod *vod, const char *path)
 	char url[1024];
 	XLErrorCode err;
 	XLHttp *http;
-	char* body;
 	char* bthash;
 
 	if (!vod || !path)
@@ -527,7 +514,7 @@ static char* vod_upload_bt_file(XLVod *vod, const char *path)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char *body = xl_http_get_body(http);
 	bthash = json_parse_bt_hash(body);
 	if (bthash == NULL)
 		goto failed;
@@ -542,7 +529,6 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 {
 	int i;
 	char *index = NULL;
-	char *body;
 	char url[1024];
 	XLHttp *http;
 	XLErrorCode err;
@@ -557,7 +543,7 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 		err = XL_ERROR_HTTP_ERROR;
 		goto failed;
 	}
-	body = xl_http_get_body(http);
+	const char* body = xl_http_get_body(http);
 	i = json_parse_bt_index(body);
 	if (i == -1)
 		goto failed;

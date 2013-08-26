@@ -222,14 +222,18 @@ char* xl_url_decode(const char* euri)
     return url;
 }
 
-#if 0
-int main(int argc, char *argv[])
+char* vod_url_encode(const char* uri)
 {
-    char *buf = url_encode("http://www.-go8ogle. com");
-    if (buf) {
-        lwqq_log(LOG_NOTICE, "Encode data: %s\n", buf);
-    } else 
-    puts(buf);
-    return 0;
+	char u[512] = {0};
+	char *b64 = NULL;
+	size_t len;
+
+    //set up data
+    snprintf(u, sizeof(u), "[XLLX]%s[XLLX]", uri);
+
+    len = base64_encode(u, strlen(u), &b64);
+	if (len < 0)
+		return NULL;
+
+	return b64;
 }
-#endif

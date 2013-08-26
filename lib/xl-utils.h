@@ -27,5 +27,6 @@ long get_current_timestamp(void);
 char *string_toupper(const char *str);
 int re_match(const char* pattern, const char* str);
 int get_file_size(const char* path, size_t *size);
+int check_file_existed(const char *filename);
 
 #endif /* __XL_UTILS_H__ */

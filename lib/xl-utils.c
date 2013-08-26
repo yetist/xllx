@@ -20,14 +20,14 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * */
 
-       #include <sys/types.h>
-       #include <sys/stat.h>
-       #include <unistd.h>
+#include <ctype.h>
+#include <regex.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <ctype.h>
+#include <sys/stat.h>
 #include <sys/time.h>
-#include <regex.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "smemory.h"
 #include "xl-utils.h"
@@ -94,4 +94,10 @@ int get_file_size(const char* path, size_t *size)
 	}
 	*size = (size_t) st.st_size;
 	return 0;
+}
+
+int check_file_existed(const char *filename)
+{
+	struct stat st;
+	return (stat(filename, &st )==0 && S_ISREG(st.st_mode));
 }

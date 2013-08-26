@@ -23,7 +23,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <xllx/xllx.h>
+#include "xllx.h"
+
+int client_login(XLClient *client);
 
 void play_online_videos(XLVod *vod)
 {
@@ -53,7 +55,7 @@ void play_online_videos(XLVod *vod)
 	}
 }
 
-void play_url_files(XLVod *vod, const char *path)
+void play_url_files(XLVod *vod, XLClient *client, const char *path)
 {
 	FILE *fp;
 	char buf[1024];
@@ -77,24 +79,35 @@ void play_url_files(XLVod *vod, const char *path)
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
 			} else {
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ got an error, error code is %d\n", err);
+		//		if (xl_client_has_logged_in(client) != 0)
+		//		{
+		//			// 测试在运行过程中登录，登出
+		//			printf("logout\n");
+		//			client_login(client);
+		//		}else{
+		//			printf("login\n");
+		//		}
 			}
 
 		} else {
-			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  play_url is %s\n", url);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  commandline for play is: mplayer -referrer \"http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.991.01\" \"%s\" \n", url);
+			char *myurl=vod_url_encode(url);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  commandline for play is: mplayer \"http://localhost:8080/vod?id=%s\"\n", myurl);
+			free(myurl);
 			free(url);
+			// 测试在运行过程中登录，登出
+			//xl_client_logout(client);
 		}
 	}
 	fclose(fp);
 }
 
-void test_client(const char* username, const char* password, const char *path)
+int client_login(XLClient *client)
 {
-	XLClient *client;
 	XLErrorCode err = 0;
 	char buf[4];
 	int ret;
 
-	client = xl_client_new(username, password);
 	xl_client_set_verify_image_path(client, "/tmp/vcode.jpg");
 	ret = xl_client_login(client, &err);
 	int try = 0;
@@ -111,21 +124,34 @@ void test_client(const char* username, const char* password, const char *path)
 				fgets(buf, 5, stdin);
 				buf[4] = '\0';
 			}while(strlen(buf) != 4);
-			printf("vcode=%s\n", buf);
 			xl_client_set_verify_code(client, buf);
+			printf("\n");
 		}
 		err = XL_ERROR_OK;
+
 		ret = xl_client_login(client, &err);
 	}
 	if (ret != 0)
 	{
 		printf("login failed! return code = %d\n", err);
+	}
+	return ret;
+}
+
+void test_client(const char* username, const char* password, const char *path)
+{
+	XLClient *client;
+	XLVod *vod;
+
+	client = xl_client_new(username, password);
+	if (client_login(client) != 0)
+	{
+		printf("login failed!\n");
 		return;
 	}
-	XLVod *vod;
 	vod = xl_vod_new(client);
 	//play_online_videos(vod);
-	play_url_files(vod, path);
+	play_url_files(vod, client, path);
 	xl_client_logout(client);
 	xl_vod_free(vod);
 }

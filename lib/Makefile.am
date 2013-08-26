@@ -1,18 +1,11 @@
-GHTTP_CFLAGS = -I$(top_srcdir)/lib/libghttp
-GHTTP_LIBS = $(top_builddir)/lib/libghttp/libghttp.la
-
 if ENABLE_DEBUG
 DEBUG_FLAGS = 
 else
 DEBUG_FLAGS = -DNDEBUG
 endif
 
-SUBDIRS = libghttp
-DIST_SUBDIRS = libghttp
-
 XLLX_C_FILES = 		\
 	xl-client.c 	\
-	xl-cookies.c 	\
 	xl-http.c 	\
 	xl-json.c	\
 	xl-url.c 	\
@@ -27,7 +20,6 @@ XLLX_C_FILES = 		\
 INST_H_FILES = 		\
 	xllx.h		\
 	xl-client.h	\
-	xl-cookies.h	\
 	xl-errors.h	\
 	xl-videos.h	\
 	xl-http.h	\
@@ -35,7 +27,6 @@ INST_H_FILES = 		\
    	xl-vod.h
 
 NOINST_H_FILES =	\
-	xl-http.h	\
 	xl-json.h	\
 	xl-utils.h	\
 	base64.h	\
@@ -43,7 +34,6 @@ NOINST_H_FILES =	\
 	logger.h	\
 	md5.h		\
 	smemory.h
-
 
 lib_LTLIBRARIES = libxllx.la
 
@@ -55,13 +45,12 @@ libxllx_la_SOURCES = 	\
 libxllx_la_CFLAGS =	\
 	$(DEBUG_FLAGS) \
 	$(ZLIB_FLAGS) \
-	$(GHTTP_CFLAGS)\
+	$(CURL_CFLAGS)	\
 	$(JSON_CFLAGS)
 
 libxllx_la_LIBADD =	\
-	$(GHTTP_LIBS)	\
 	$(ZLIB_LIBS) \
-	$(EV_LIBS) \
+	$(CURL_LIBS)	\
 	$(JSON_LIBS)
 
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
