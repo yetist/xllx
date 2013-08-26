@@ -69,8 +69,8 @@ int         xl_http_get_status(XLHttp *request);
 const char* xl_http_get_body(XLHttp *request);
 int         xl_http_get_body_len(XLHttp *request);
 
-void xl_http_free(XLHttp *request);
-void xl_http_cleanup(void);
+void        xl_http_free(XLHttp *request);
+void        xl_http_cleanup(void);
 
 /* 在新创建的不同XLHttp对象之间保持的一个缓存对象，用于缓存DNS解析、Cookie等等，用于提升性能。*/
 XLHttpShare* xl_http_share_new(void);

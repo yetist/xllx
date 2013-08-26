@@ -650,49 +650,6 @@ static int curl_debug_redirect(CURL* h, curl_infotype t, char* msg, size_t len, 
     return 0;
 }
 
-#if 0
-static void xl_http_add_file_content(XLHttp* request, const char* name,
-        const char* filename, const void* data, size_t size, const char* extension)
-{
-    struct curl_httppost** post = (struct curl_httppost**)&request->form_start;
-    struct curl_httppost** last = (struct curl_httppost**)&request->form_end;
-    char *type = NULL;
-    if(extension == NULL){
-        extension = strrchr(filename,'.');
-        if(extension !=NULL) extension++;
-    }
-    if(extension == NULL) type = NULL;
-    else{
-        if(strcmp(extension,"jpg")==0||strcmp(extension,"jpeg")==0)
-            type = "image/jpeg";
-        else if(strcmp(extension,"png")==0)
-            type = "image/png";
-        else if(strcmp(extension,"gif")==0)
-            type = "image/gif";
-        else if(strcmp(extension,"bmp")==0)
-            type = "image/bmp";
-        else type = NULL;
-    }
-    if(type==NULL){
-        curl_formadd(post,last,
-                CURLFORM_COPYNAME,name,
-                CURLFORM_BUFFER,filename,
-                CURLFORM_BUFFERPTR,data,
-                CURLFORM_BUFFERLENGTH,size,
-                CURLFORM_END);
-    }else{
-        curl_formadd(post,last,
-                CURLFORM_COPYNAME,name,
-                CURLFORM_BUFFER,filename,
-                CURLFORM_BUFFERPTR,data,
-                CURLFORM_BUFFERLENGTH,size,
-                CURLFORM_CONTENTTYPE,type,
-                CURLFORM_END);
-    }
-    curl_easy_setopt(request->curl, CURLOPT_HTTPPOST, request->form_start);
-}
-#endif
-
 /* XLHttpShare Object */
 
 XLHttpShare* xl_http_share_new(void)
