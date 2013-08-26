@@ -1,5 +1,5 @@
-GHTTP_CFLAGS = -I$(top_srcdir)/lib/libghttp
-GHTTP_LIBS = $(top_builddir)/lib/libghttp/libghttp.la
+#GHTTP_CFLAGS = -I$(top_srcdir)/lib/libghttp
+#GHTTP_LIBS = $(top_builddir)/lib/libghttp/libghttp.la
 
 if ENABLE_DEBUG
 DEBUG_FLAGS = 
@@ -53,7 +53,6 @@ libxllx_la_CFLAGS =	\
 	$(JSON_CFLAGS)
 
 libxllx_la_LIBADD =	\
-	$(GHTTP_LIBS)	\
 	$(ZLIB_LIBS) \
 	-lcurl \
 	$(JSON_LIBS)

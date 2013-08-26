@@ -30,7 +30,6 @@
 #include <json.h>
 
 #include "xl-vod.h"
-#include "xl-cookies.h"
 #include "xl-http.h"
 #include "xl-url.h"
 #include "xl-utils.h"
