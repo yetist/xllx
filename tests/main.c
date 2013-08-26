@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "xllx.h"
+#include "xl-url.h"
 
 int client_login(XLClient *client);
 
@@ -80,21 +81,24 @@ void play_url_files(XLVod *vod, XLClient *client, const char *path)
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ video add failed\n");
 			} else {
 				printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ got an error, error code is %d\n", err);
-				if (xl_client_has_logged_in(client) != 0)
-				{
-					// 测试在运行过程中登录，登出
-					printf("logout\n");
-					client_login(client);
-				}else{
-					printf("login\n");
-				}
+		//		if (xl_client_has_logged_in(client) != 0)
+		//		{
+		//			// 测试在运行过程中登录，登出
+		//			printf("logout\n");
+		//			client_login(client);
+		//		}else{
+		//			printf("login\n");
+		//		}
 			}
 
 		} else {
 			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  commandline for play is: mplayer -referrer \"http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.991.01\" \"%s\" \n", url);
+			char *myurl=vod_url_encode(url);
+			printf("⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  commandline for play is: mplayer \"http://localhost:8080/vod?id=%s\"\n", myurl);
+			free(myurl);
 			free(url);
 			// 测试在运行过程中登录，登出
-			xl_client_logout(client);
+			//xl_client_logout(client);
 		}
 	}
 	fclose(fp);
