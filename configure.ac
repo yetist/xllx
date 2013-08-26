@@ -96,20 +96,17 @@ AC_SUBST(JSON_CFLAGS)
 AC_SUBST(JSON_LIBS)
 
 dnl *************************
-dnl *** libev     checks ***
+dnl *** libcurl   checks ***
 dnl *************************
-AC_CHECK_LIB(ev, ev_run, [AC_CHECK_HEADER(ev.h, found_ev=yes)], found_ev=no)
-if test "x$found_ev" = "xno" ; then
-	AC_MSG_ERROR([*** Working libev not found ***])
-fi
-EV_LIBS='-lev'
-AC_SUBST(EV_LIBS)
+CURL_REQUIRED_VERSION=7.31.0
+PKG_CHECK_MODULES(CURL, libcurl >= $CURL_REQUIRED_VERSION)
+AC_SUBST(CURL_CFLAGS)
+AC_SUBST(CURL_LIBS)
 
 # checks for zlib
 PKG_CHECK_MODULES(ZLIB, [zlib >= 1.2], [AC_DEFINE(USE_ZLIB, 1, [Use ZLIB])])
 AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
-
 
 AC_CONFIG_FILES([
 Makefile
@@ -117,7 +114,6 @@ data/xllx.pc
 data/Makefile
 lib/xllx.h
 lib/Makefile
-lib/libghttp/Makefile
 tests/Makefile
 ])
 

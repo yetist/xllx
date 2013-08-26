@@ -225,7 +225,7 @@ char* xl_url_decode(const char* euri)
 char* vod_url_encode(const char* uri)
 {
 	char u[512] = {0};
-	char *b64, *url = NULL;
+	char *b64 = NULL;
 	size_t len;
 
     //set up data
@@ -236,23 +236,4 @@ char* vod_url_encode(const char* uri)
 		return NULL;
 
 	return b64;
-	/*
-    url = malloc(strlen(b64) + 11);
-    sprintf(url, "Flashget://%s", b64);
-
-    free(b64);
-    return url;
-	*/
 }
-
-#if 0
-int main(int argc, char *argv[])
-{
-    char *buf = url_encode("http://www.-go8ogle. com");
-    if (buf) {
-        lwqq_log(LOG_NOTICE, "Encode data: %s\n", buf);
-    } else 
-    puts(buf);
-    return 0;
-}
-#endif

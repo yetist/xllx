@@ -40,7 +40,6 @@ struct _XLClient
     char *password;             /**< Password */
 	char *vcode;
 	char *vimgpath;
-    //XLCookies *cookies;
 	XLHttpShare *hs;
 };
 static void  get_verify_code(XLClient *client, XLErrorCode *err);
@@ -60,7 +59,6 @@ XLClient *xl_client_new(const char *username, const char *password)
 	XLClient *client = s_malloc0(sizeof(*client));
 	client->username = s_strdup(username);
 	client->password = s_strdup(password);
-	//client->cookies = xl_cookies_new();
 	client->hs = xl_http_share_new();
 
 	return client;
@@ -102,7 +100,6 @@ int xl_client_check_verify_code(XLClient *client, XLErrorCode *err)
 	}
 	ret = 0;
 	//client_show_cookie_names(client);
-	//xl_cookies_receive(client->cookies, client->hs, 1);
 failed:
 	xl_http_free(req);
 	return ret;
@@ -445,19 +442,12 @@ XLHttp* xl_client_upload_file(XLClient *client, const char* url, const char *fie
 		goto failed;
 	}
     xl_log(LOG_NOTICE, "URL[%s]\n", url);
-    //cookies = xl_cookies_get_string_line(client->cookies);
-    //if (cookies != NULL) {
-	//	//xl_log(LOG_NOTICE, "Set-Cookie[%s]\n", cookies);
-	//	xl_http_set_header(http, "Cookie", cookies);
-    //    s_free(cookies);
-    //}
 	if ((ret = xl_http_upload_file(http, field, path)) != 0) {
 		*err = XL_ERROR_NETWORK_ERROR;
 		goto failed;
 	}
-//	if (xl_http_get_body_len(http) <= 6000)
-//		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
-	//client_show_cookie_names(http);
+	if (xl_http_get_body_len(http) <= 6000)
+		printf("[====================html(%d)====================\n%s\n=====================html========================]\n", xl_http_get_status(http), xl_http_get_body(http));
 	return http;
 failed:
 	xl_http_free(http);

@@ -1,6 +1,3 @@
-#GHTTP_CFLAGS = -I$(top_srcdir)/lib/libghttp
-#GHTTP_LIBS = $(top_builddir)/lib/libghttp/libghttp.la
-
 if ENABLE_DEBUG
 DEBUG_FLAGS = 
 else
@@ -30,7 +27,6 @@ INST_H_FILES = 		\
    	xl-vod.h
 
 NOINST_H_FILES =	\
-	xl-http.h	\
 	xl-json.h	\
 	xl-utils.h	\
 	base64.h	\
@@ -38,7 +34,6 @@ NOINST_H_FILES =	\
 	logger.h	\
 	md5.h		\
 	smemory.h
-
 
 lib_LTLIBRARIES = libxllx.la
 
@@ -50,11 +45,12 @@ libxllx_la_SOURCES = 	\
 libxllx_la_CFLAGS =	\
 	$(DEBUG_FLAGS) \
 	$(ZLIB_FLAGS) \
+	$(CURL_CFLAGS)	\
 	$(JSON_CFLAGS)
 
 libxllx_la_LIBADD =	\
 	$(ZLIB_LIBS) \
-	-lcurl \
+	$(CURL_LIBS)	\
 	$(JSON_LIBS)
 
 libxllx_la_LDFLAGS = -export-dynamic -no-undefined -export-symbols-regex ".*" \
