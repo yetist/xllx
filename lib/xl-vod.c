@@ -294,18 +294,24 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	name = xl_video_get_file_name(video);
 	src_url = xl_video_get_src_url(video);
 	orig_url = xl_url_unquote(src_url);
+
+	/* Important
+	 * @platform:
+	 * 1 for ipad, will get the orig format.
+	 * 0 for other, will get the flv format
+	 * */
 	if (strncmp(orig_url, "bt://", 5) == 0)
 	{
 		char* bt_index = vod_get_bt_index(vod, orig_url);
 		if (bt_index != NULL)
 		{
-			snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s%%2F%s&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, bt_index, name, userid, sessionid, get_current_timestamp());
+			snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s%%2F%s&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, bt_index, name, userid, sessionid, get_current_timestamp());
 			s_free(bt_index);
 		} else {
 			goto failed2;
 		}
 	} else {
-		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=0&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, name, userid, sessionid, get_current_timestamp());
+		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, name, userid, sessionid, get_current_timestamp());
 	}
 	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
@@ -532,6 +538,11 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 	char url[1024];
 	XLHttp *http;
 	XLErrorCode err;
+
+	/* Maybe the follow url all OK:
+	http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/30/req_offset/0 
+	http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/2000/req_offset/0/
+	*/
 
 	snprintf(url, sizeof(url), "http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/30/req_offset/0", bt_hash+5);
 	http = xl_client_open_url(vod->client, url, HTTP_GET, NULL, NULL, &err);

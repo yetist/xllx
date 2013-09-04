@@ -754,13 +754,16 @@ char *json_parse_get_download_url(const char *json_str, VideoType type)
 						json_object_put(jo_vod_url);
 					}
 					// use this logic, we sure that will return a valid url if type is not matched.
-					if (type == VIDEO_480P && spec_id == 225536)
+					if (type == VIDEO_360P && (spec_id == 225536 || spec_id == 226048))
 					{
 						break;
-					} else if (type == VIDEO_720P && spec_id == 282880)
+					} else if (type == VIDEO_480P && (spec_id == 282880 || spec_id == 283392))
 					{
 						break;
-					} else if (type == VIDEO_1080P && spec_id == 356608)
+					} else if (type == VIDEO_720P && (spec_id == 356608 || spec_id == 357120))
+					{
+						break;
+					} else if (type == VIDEO_1080P && (spec_id == 356608 || spec_id == 357120))
 					{
 						break;
 					}

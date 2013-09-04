@@ -18,7 +18,7 @@
 
 #金刚狼2清晰TS英语中字.rmvb
 
-magnet:?xt=urn:btih:7C6E92ECCB8D54C56F2CF00DCE895D6246B1E0F3
+#magnet:?xt=urn:btih:7C6E92ECCB8D54C56F2CF00DCE895D6246B1E0F3
 
 # 速度与激情6(初版).Fast.And.Furious.6.2013.WEB-MP4-人人影视原创听译中文字幕.mp4
 #magnet:?xt=urn:btih:32dbf49152cf116cbc0f0cfcf502ce288d3e56ad&tr.0=http://tracker.openbittorrent.com/announce&tr.1=udp://tracker.openbittorrent.com:80/announce&tr.2=http://tracker.thepiratebay.org/announce&tr.3=http://tracker.publicbt.com/announce&tr.4=http://tracker.prq.to/announce&tr.5=udp://tracker.publicbt.com:80/announce
@@ -29,8 +29,17 @@ magnet:?xt=urn:btih:7C6E92ECCB8D54C56F2CF00DCE895D6246B1E0F3
 # [电影天堂www.dy2018.net]加油站被袭事件2cd1.rmvb
 #ftp://dygod1:dygod1@d007.dygod.org:5021/加油站被袭事件2DVD/[电影天堂www.dy2018.net]加油站被袭事件2cd1.rmvb
 
-3311ECEB5CB82E7B9E0D14F37D.torrent
+#3311ECEB5CB82E7B9E0D14F37D.torrent
 
 #thunder://QUFodHRwOi8vMTcuZG93bi4xMTlnLmNvbS8yMDExMTAzMC85Y2Q1YjNhNi0xNDc1LTRhMmYtOGYzNC0zNjlhMzRmMjgyMTUvODVjMzg4NThkMzFlNGFhZGEyMDJjMzk5Y2UxOTQxOTMvKHd3dy4zM2RkeS5jb20pJWUzJTgwJTkwJWU3JTk5JWJkJWU1JWFlJWFiJWU5JTk5JWI3JWU4JTkwJWJkKCVlNSU4NSVhOCVlOSU5ZCVhMiVlNiU5NCViYiVlNSU4ZCVhMCVlZiViYyU5YSVlNSU4MCU5MiVlNiU5NSViMCVlNiU5NSU5MSVlNiU4ZiViNCkoJWU3JTk5JWJkJWU1JWFlJWFiJWU2JWIyJWE2JWU5JTk5JWI3KSVlMyU4MCU5MSVlMyU4MCU5MCVlOSVhYiU5OCVlNiViOCU4NSVlOCU5MyU5ZCVlNSU4NSU4OTcyMFAlZTclODklODhCRC1STVZCLiVlNCViOCVhZCVlNSVhZCU5NyVlMyU4MCU5MSVlMyU4MCU5MDIwMTMlZTYlOWMlODAlZTYlOTYlYjAlZTclYmUlOGUlZTUlOWIlYmRSJWU3JWJhJWE3JWU1JThhJWE4JWU0JWJkJTljJWU2JTgzJThhJWU2JTgyJTlhJWU1JWE0JWE3JWU3JTg5JTg3JWUzJTgwJTkxLnRvcnJlbnQ/a2V5PWMxZTBlYjBkYmQ2OGNiYzkzZjAwZGFmZTgyM2FjNzU3Wlo=
 
 #magnet:?xt=urn:btih:a92e8ee3aebd999113d8c132c4ea86637000e6b4&tr=http%3A%2F%2Ftracker.btscg.com%3A6969%2Fannounce&tr=http%3A%2F%2Ftracker.btscg.com%3A6969%2Fannounce&tr=http%3A%2F%2Fbt.cnscg.com%3A6969%2Fannounce&tr=http%3A%2F%2Fbt.cnscg.org%3A6969%2Fannounce&tr=http%3A%2F%2Ftracker.openbittorrent.com%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80%2Fannounce&tr=http%3A%2F%2Ftracker.thepiratebay.org%2Fannounce&tr=http%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=http%3A%2F%2Ftracker.prq.to%2Fannounce&tr=http%3A%2F%2Ftorrent-download.to%3A5869%2Fannounce
+
+#bt://7c9c404ba3d2ebb4ee830ad087d1b97157e68aed
+
+bt://B22859889120FE5DD9DCEDEDE3A490B1FE992BAC
+
+#这是个多文件bt，目前处理有问题
+#bt://BDBA74B0CDC89A3DC796B7DBE63A8A932C06BEF7
+
+#ed2k://|file|断线人生.Kai Po Che !.2013.中英双语字幕.BDrip.720p.x264.AC3.深影字幕组V2.mkv|2100767311|681d57bb18d36d1da65ae309b5e49f98|h=arp6zz6f6overyqcsce5yftk4qtts732|/

@@ -28,6 +28,7 @@
 
 typedef enum
 {
+	VIDEO_360P,
 	VIDEO_480P,
 	VIDEO_720P,
 	VIDEO_1080P,
