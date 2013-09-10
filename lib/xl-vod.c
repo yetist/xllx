@@ -35,6 +35,7 @@
 #include "xl-utils.h"
 #include "xl-json.h"
 #include "xl-videos.h"
+#include "xl-play-urls.h"
 #include "smemory.h"
 #include "logger.h"
 #include "md5.h"
@@ -48,6 +49,7 @@ struct _XLVod
 {
 	XLClient *client;
 	XLVideos *videos;
+	XLPlayUrls *playurls;
 };
 
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
@@ -67,6 +69,7 @@ XLVod* xl_vod_new(XLClient *client)
 	XLVod *vod = s_malloc0(sizeof(*vod));
 	vod->client = client;
 	vod->videos = xl_videos_new();
+	vod->playurls = xl_play_urls_new();
 	vod_update_list(vod);
 	return vod;
 }
@@ -78,6 +81,7 @@ void xl_vod_free(XLVod *vod)
 
 	xl_client_free(vod->client);
 	xl_videos_free(vod->videos);
+	xl_play_urls_free(vod->playurls);
 	s_free(vod);
 }
 
@@ -134,7 +138,14 @@ XLVideos* xl_vod_get_videos(XLVod *vod)
 		*/
 	return vod->videos;
 }
-
+XLPlayUrls* xl_vod_get_play_urls(XLVod *vod)
+{
+	/*
+	if (xl_videos_get_count(vod->videos) == 0)
+		vod_update_list(vod);
+		*/
+	return vod->playurls;
+}
 int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 {
 	char *sessionid;
@@ -305,6 +316,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	{
 		//static char* vod_get_subBT_json_string(XLVod *vod, const char* bt_hash)
 		char *subBT = vod_get_subBT_json_string(vod, orig_url);
+		printf("subBt: %s\n", subBT);
 		if (subBT == NULL)
 			goto failed2;
 
@@ -317,6 +329,8 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 				int index = json_parse_bt_index_by_index(subBT, i);
 				if (index != -1)
 				{
+					char *bt_name = json_parse_bt_name_by_index(subBT, i);
+					char *bt_hash = json_parse_bt_hash_by_index(subBT, i);
 					snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s%%2F%d&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, index, name, userid, sessionid, get_current_timestamp());
 					char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
@@ -333,6 +347,9 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 					const char* body =  xl_http_get_body(req);
 					play_url = json_parse_get_download_url(body, type);
 					printf("play_url is %s\n", play_url);
+					XLPlayUrl *playUrl;
+					playUrl = xl_play_url_new(bt_name, play_url);
+				 	xl_play_urls_append_play_url(vod->playurls, playUrl);
 				} else {
 					goto failed2;
 				}
@@ -366,6 +383,9 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		}
 		const char* body =  xl_http_get_body(req);
 		play_url = json_parse_get_download_url(body, type);
+		XLPlayUrl *playUrl;
+		playUrl = xl_play_url_new(name, play_url);
+		xl_play_urls_append_play_url(vod->playurls, playUrl);
 	}
 failed:
 	xl_http_free(req);

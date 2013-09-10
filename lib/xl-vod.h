@@ -25,6 +25,7 @@
 
 #include "xl-client.h"
 #include "xl-videos.h"
+#include "xl-play-urls.h"
 
 typedef enum
 {
@@ -56,6 +57,7 @@ XLVod* xl_vod_new(XLClient *client);
 void   xl_vod_free(XLVod *vod);
 
 XLVideos* xl_vod_get_videos(XLVod *vod);
+XLPlayUrls* xl_vod_get_play_urls(XLVod *vod);
 int       xl_vod_remove_video(XLVod *vod, const char *url_hash);
 int       xl_vod_remove_all_video(XLVod *vod);
 int       xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err);

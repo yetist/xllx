@@ -9,6 +9,7 @@ XLLX_C_FILES = 		\
 	xl-http.c 	\
 	xl-json.c	\
 	xl-url.c 	\
+	xl-play-urls.c 	\
 	xl-utils.c 	\
 	xl-videos.c	\
 	xl-vod.c	\
@@ -24,6 +25,7 @@ INST_H_FILES = 		\
 	xl-videos.h	\
 	xl-http.h	\
    	xl-url.h	\
+   	xl-play-urls.h	\
    	xl-vod.h
 
 NOINST_H_FILES =	\

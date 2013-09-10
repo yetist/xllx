@@ -40,6 +40,6 @@
 #bt://B22859889120FE5DD9DCEDEDE3A490B1FE992BAC
 
 #这是个多文件bt，目前处理有问题
-bt://BDBA74B0CDC89A3DC796B7DBE63A8A932C06BEF7
+#bt://BDBA74B0CDC89A3DC796B7DBE63A8A932C06BEF7
 
-#ed2k://|file|断线人生.Kai Po Che !.2013.中英双语字幕.BDrip.720p.x264.AC3.深影字幕组V2.mkv|2100767311|681d57bb18d36d1da65ae309b5e49f98|h=arp6zz6f6overyqcsce5yftk4qtts732|/
+ed2k://|file|断线人生.Kai Po Che !.2013.中英双语字幕.BDrip.720p.x264.AC3.深影字幕组V2.mkv|2100767311|681d57bb18d36d1da65ae309b5e49f98|h=arp6zz6f6overyqcsce5yftk4qtts732|/

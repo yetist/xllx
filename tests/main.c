@@ -54,7 +54,30 @@ void play_online_videos(XLVod *vod)
 		free(play_url);
 	}
 }
+void play_videos(XLVod *vod)
+{
+	int count;
+	int i;
+	XLPlayUrls* videos;
+	XLPlayUrl* video;
+	XLErrorCode err;
 
+	videos = xl_vod_get_play_urls(vod);
+	count = xl_play_urls_get_count(videos);
+	for (i=0; i < count; i++)
+	{
+		char *file_name;
+		char *play_url;
+		char *fname;
+		video = xl_play_urls_get_nth_play_url(videos, i);
+		file_name = xl_play_url_get_file_name(video);
+		play_url = xl_play_url_get_play_url(video);
+		fname = xl_url_unquote(file_name);
+		printf("\nvideo: %s \nplay_url: %s\n", fname, play_url);
+		free(file_name);
+		free(play_url);
+	}
+}
 void play_url_files(XLVod *vod, XLClient *client, const char *path)
 {
 	FILE *fp;
@@ -150,8 +173,9 @@ void test_client(const char* username, const char* password, const char *path)
 		return;
 	}
 	vod = xl_vod_new(client);
-	//play_online_videos(vod);
+//	play_online_videos(vod);
 	play_url_files(vod, client, path);
+	play_videos(vod);
 	xl_client_logout(client);
 	xl_vod_free(vod);
 }
