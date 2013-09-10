@@ -246,69 +246,6 @@ failed:
 	return bt_name;
 }
 
-char *json_parse_bt_hash_by_index(const char* json_str, int idx)
-{
-	/*
-	 * json_str is {"resp": {"userid": "111111111", "ret": 0, "subfile_list": [{"index": 0, "url_hash": "10582384012816867477", "name": "aaa58256146@\u7fa4\u9b54\u8272\u821e@(AVopen)\u611b\u7530\u53cb,\u84bc\u4e95,\u7a57\u82b1,\u5c0f\u6fa4\u746a\u5229\u4e9e,\u9ebb\u7f8e,\u9752\u6728~\u4f86\u81eaS1\u7684\u885d\u64ca.rmvb", "cid": null, "gcid": null, "file_size": 0, "duration": 0}], "main_task_url_hash": "9918101846291549545", "info_hash": "004F50950256E66F128D528D0773FDEFBC298CCE", "record_num": 1}}
-	 * return "${index}"
-	 */
-	char *bt_name = NULL;
-	struct json_object *jsobj;
-	struct json_object *jo_resp;
-	struct json_object *jo_ret;
-	struct json_object *jo_subfile_list;
-	struct json_object *jo_subfile_list_0;
-	struct json_object *jo_name;
-
-	if (!json_str)
-		return NULL;
-
-	jsobj = json_tokener_parse(json_str);
-	if( is_error(jsobj) || !jsobj)
-	{
-		json_object_put(jsobj);
-		return NULL;
-	}
-	jo_resp = json_object_object_get(jsobj, "resp");
-	if (jo_resp)
-	{
-		jo_ret = json_object_object_get(jo_resp, "ret");
-		if (jo_ret)
-		{
-			int ret = json_object_get_int(jo_ret);
-			if (ret != 0)
-			{
-				json_object_put(jo_ret);
-				goto failed;
-			}
-			json_object_put(jo_ret);
-		}
-		jo_subfile_list = json_object_object_get(jo_resp, "subfile_list"); 
-		if (jo_subfile_list)
-		{
-			if (json_object_array_length(jo_subfile_list) >= 1)
-			{
-				jo_subfile_list_0 = json_object_array_get_idx(jo_subfile_list, idx);
-				if (jo_subfile_list_0)
-				{
-					jo_name = json_object_object_get(jo_subfile_list_0, "url_hash"); 
-					if (jo_name)
-					{
-						s_asprintf(&bt_name, "%s", json_object_get_string(jo_name));
-						json_object_put(jo_name);
-					}
-					json_object_put(jo_subfile_list_0);
-				}
-			}
-			json_object_put(jo_subfile_list);
-		}
-		json_object_put(jo_resp);
-	}
-failed:
-	json_object_put(jsobj);
-	return bt_name;
-}
-
 int json_parse_bt_index(const char* json_str)
 {
 	/*

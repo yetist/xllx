@@ -49,7 +49,6 @@ struct _XLVod
 {
 	XLClient *client;
 	XLVideos *videos;
-	XLPlayUrls *playurls;
 };
 
 static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
@@ -69,7 +68,6 @@ XLVod* xl_vod_new(XLClient *client)
 	XLVod *vod = s_malloc0(sizeof(*vod));
 	vod->client = client;
 	vod->videos = xl_videos_new();
-	vod->playurls = xl_play_urls_new();
 	vod_update_list(vod);
 	return vod;
 }
@@ -81,7 +79,6 @@ void xl_vod_free(XLVod *vod)
 
 	xl_client_free(vod->client);
 	xl_videos_free(vod->videos);
-	xl_play_urls_free(vod->playurls);
 	s_free(vod);
 }
 
@@ -138,14 +135,7 @@ XLVideos* xl_vod_get_videos(XLVod *vod)
 		*/
 	return vod->videos;
 }
-XLPlayUrls* xl_vod_get_play_urls(XLVod *vod)
-{
-	/*
-	if (xl_videos_get_count(vod->videos) == 0)
-		vod_update_list(vod);
-		*/
-	return vod->playurls;
-}
+
 int xl_vod_remove_video(XLVod *vod, const char *url_hash)
 {
 	char *sessionid;
@@ -265,7 +255,7 @@ int xl_vod_add_video(XLVod *vod, const char *url, XLErrorCode *err)
 	return -1;
 }
 
-char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLErrorCode *err)
+XLPlayUrls* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLErrorCode *err)
 {
 	char *name;
 	char *src_url;
@@ -274,6 +264,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	char *userid, *sessionid;
 	XLHttp *req;
 	VideoStatus video_status;
+	XLPlayUrls *playurls = NULL;
 	char *play_url = NULL;
 	int try = 0;
 
@@ -293,7 +284,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	{
 		*err = XL_ERROR_VIDEO_NOT_READY;
 		xl_log(LOG_NOTICE, "This video is not ready for play: [%s]\n",  xl_vod_str_video_status(video_status));
-		return play_url;
+		return playurls;
 	}
 
 	userid = xl_client_get_cookie(vod->client, "userid");
@@ -312,6 +303,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	 * 1 for ipad, will get the orig format.
 	 * 0 for other, will get the flv format
 	 * */
+	playurls = xl_play_urls_new();
 	if (strncmp(orig_url, "bt://", 5) == 0)
 	{
 		//static char* vod_get_subBT_json_string(XLVod *vod, const char* bt_hash)
@@ -329,8 +321,6 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 				int index = json_parse_bt_index_by_index(subBT, i);
 				if (index != -1)
 				{
-					char *bt_name = json_parse_bt_name_by_index(subBT, i);
-					char *bt_hash = json_parse_bt_hash_by_index(subBT, i);
 					snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s%%2F%d&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, index, name, userid, sessionid, get_current_timestamp());
 					char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
@@ -348,8 +338,11 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 					play_url = json_parse_get_download_url(body, type);
 					printf("play_url is %s\n", play_url);
 					XLPlayUrl *playUrl;
+					char *bt_name = json_parse_bt_name_by_index(subBT, i);
+					if(bt_name == NULL)
+						continue;
 					playUrl = xl_play_url_new(bt_name, play_url);
-				 	xl_play_urls_append_play_url(vod->playurls, playUrl);
+				 	xl_play_urls_append_play_url(playurls, playUrl);
 				} else {
 					goto failed2;
 				}
@@ -385,7 +378,7 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		play_url = json_parse_get_download_url(body, type);
 		XLPlayUrl *playUrl;
 		playUrl = xl_play_url_new(name, play_url);
-		xl_play_urls_append_play_url(vod->playurls, playUrl);
+		xl_play_urls_append_play_url(playurls, playUrl);
 	}
 failed:
 	xl_http_free(req);
@@ -396,7 +389,7 @@ failed2:
 	s_free(sessionid);
 failed0:
 	s_free(userid);
-	return play_url;
+	return playurls;
 }
 
 static int vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url)
@@ -498,7 +491,7 @@ failed0:
 	return -1;
 }
 
-char *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err)
+XLPlayUrls *xl_vod_get_video_url(XLVod *vod, const char* url, VideoType type, XLErrorCode *err)
 {
 	XLVideos *videos;
 	XLVideo *video;
