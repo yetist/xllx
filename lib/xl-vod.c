@@ -54,6 +54,7 @@ static char* vod_list_all_videos(XLVod *vod, XLErrorCode *err);
 static void  vod_update_list(XLVod *vod);
 static int   vod_get_title_and_url(XLVod *vod, const char* url, char **name, char **real_url);
 static char* vod_get_bt_index(XLVod *vod, const char* bt_hash);
+static char* vod_get_subBT_json_string(XLVod *vod, const char* bt_hash);
 static char* vod_upload_bt_file(XLVod *vod, const char *path);
 static int vod_add_video(XLVod *vod, const char* url, XLErrorCode *err);
 
@@ -302,6 +303,44 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 	 * */
 	if (strncmp(orig_url, "bt://", 5) == 0)
 	{
+		//static char* vod_get_subBT_json_string(XLVod *vod, const char* bt_hash)
+		char *subBT = vod_get_subBT_json_string(vod, orig_url);
+		if (subBT == NULL)
+			goto failed2;
+
+		int count = json_parse_bt_count(subBT);
+		if (count > 0)
+		{
+			int i;
+			for (i = 0; i < count; i++)
+			{
+				int index = json_parse_bt_index_by_index(subBT, i);
+				if (index != -1)
+				{
+					snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s%%2F%d&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, index, name, userid, sessionid, get_current_timestamp());
+					char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
+
+					req = xl_client_open_url(vod->client, get_url, HTTP_GET, NULL, download_refer, err);
+					if (req == NULL){
+						goto failed;
+					}
+
+					if (xl_http_get_status(req) != 200)
+					{
+						*err = XL_ERROR_HTTP_ERROR;
+						goto failed;
+					}
+					const char* body =  xl_http_get_body(req);
+					play_url = json_parse_get_download_url(body, type);
+					printf("play_url is %s\n", play_url);
+				} else {
+					goto failed2;
+				}
+			}
+			s_free(subBT);
+		}
+
+		/*
 		char* bt_index = vod_get_bt_index(vod, orig_url);
 		if (bt_index != NULL)
 		{
@@ -310,23 +349,24 @@ char* xl_vod_get_video_play_url(XLVod *vod, VideoType type, XLVideo *video, XLEr
 		} else {
 			goto failed2;
 		}
+		*/
 	} else {
 		snprintf(get_url, sizeof(get_url), "http://i.vod.xunlei.com/req_get_method_vod?url=%s&video_name=%s&from=vlist&platform=1&vip=1&userid=%s&sessionid=%s&cache=%ld", src_url, name, userid, sessionid, get_current_timestamp());
-	}
-	char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
+		char *download_refer = "http://vod.lixian.xunlei.com/media/vodPlayer_2.8.swf?v=2.8.989.01";
 
-	req = xl_client_open_url(vod->client, get_url, HTTP_GET, NULL, download_refer, err);
-	if (req == NULL){
-		goto failed;
-	}
+		req = xl_client_open_url(vod->client, get_url, HTTP_GET, NULL, download_refer, err);
+		if (req == NULL){
+			goto failed;
+		}
 
-	if (xl_http_get_status(req) != 200)
-	{
-		*err = XL_ERROR_HTTP_ERROR;
-		goto failed;
+		if (xl_http_get_status(req) != 200)
+		{
+			*err = XL_ERROR_HTTP_ERROR;
+			goto failed;
+		}
+		const char* body =  xl_http_get_body(req);
+		play_url = json_parse_get_download_url(body, type);
 	}
-	const char* body =  xl_http_get_body(req);
-	play_url = json_parse_get_download_url(body, type);
 failed:
 	xl_http_free(req);
 failed2:
@@ -555,12 +595,53 @@ static char* vod_get_bt_index(XLVod *vod, const char* bt_hash)
 		goto failed;
 	}
 	const char* body = xl_http_get_body(http);
+	//int count = json_parse_bt_count(body);
 	i = json_parse_bt_index(body);
 	if (i == -1)
 		goto failed;
 	xl_http_free(http);
 	s_asprintf(&index, "%d", i);
 	return index;
+failed:
+	xl_http_free(http);
+	return NULL;
+}
+
+static char* vod_get_subBT_json_string(XLVod *vod, const char* bt_hash)
+{
+//	int i;
+//	char *index = NULL;
+	char url[1024];
+	XLHttp *http;
+	XLErrorCode err;
+
+	/* Maybe the follow url all OK:
+	http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/30/req_offset/0 
+	http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/2000/req_offset/0/
+	*/
+
+	snprintf(url, sizeof(url), "http://i.vod.xunlei.com/req_subBT/info_hash/%s/req_num/30/req_offset/0", bt_hash+5);
+	http = xl_client_open_url(vod->client, url, HTTP_GET, NULL, NULL, &err);
+	if (http == NULL){
+		goto failed;
+	}
+	if (xl_http_get_status(http) != 200)
+	{
+		err = XL_ERROR_HTTP_ERROR;
+		goto failed;
+	}
+	const char* body = xl_http_get_body(http);
+	char *subBT = s_strdup(body);
+	/*
+	int count = json_parse_bt_count(body);
+	i = json_parse_bt_index(body);
+	if (i == -1)
+		goto failed;
+	*/
+	if(body == NULL)
+		goto failed;
+	xl_http_free(http);
+	return subBT;
 failed:
 	xl_http_free(http);
 	return NULL;

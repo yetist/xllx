@@ -98,7 +98,7 @@ AC_SUBST(JSON_LIBS)
 dnl *************************
 dnl *** libcurl   checks ***
 dnl *************************
-CURL_REQUIRED_VERSION=7.31.0
+CURL_REQUIRED_VERSION=7.22.0
 PKG_CHECK_MODULES(CURL, libcurl >= $CURL_REQUIRED_VERSION)
 AC_SUBST(CURL_CFLAGS)
 AC_SUBST(CURL_LIBS)
